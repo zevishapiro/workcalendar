@@ -1,0 +1,975 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A one-field work hours tracker.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Hours">
+<meta name="theme-color" content="#f4f5f7" data-default="#f4f5f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1114" data-default="#0f1114" media="(prefers-color-scheme: dark)">
+<title>Hours</title>
+<style>
+:root {
+  color-scheme: light;
+  --bg: #f4f5f7; --surface: #ffffff; --surface-2: #eceef2;
+  --text: #14171c; --text-2: #4d5460; --muted: #8b919b;
+  --border: rgba(20,23,28,.10); --border-2: rgba(20,23,28,.18); --grid: #e4e7ec;
+  --accent: #2a78d6; --accent-rgb: 42 120 214; --on-accent: #ffffff; --accent-soft: rgba(42,120,214,.12);
+  --good: #0a6b0a; --danger: #c93b3b; --danger-rgb: 201 59 59;
+  --heat-base: .10; --heat-range: .52;
+  --shadow: 0 10px 30px rgba(20,23,28,.14), 0 2px 6px rgba(20,23,28,.08);
+  --r: 12px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0f1114; --surface: #181b20; --surface-2: #21252c;
+    --text: #f1f3f6; --text-2: #b6bcc6; --muted: #7f8794;
+    --border: rgba(255,255,255,.10); --border-2: rgba(255,255,255,.18); --grid: #2a2f37;
+    --accent: #3987e5; --accent-rgb: 57 135 229; --accent-soft: rgba(57,135,229,.18);
+    --good: #3fbf3f; --danger: #e66767; --danger-rgb: 230 103 103;
+    --heat-base: .14; --heat-range: .62;
+    --shadow: 0 10px 30px rgba(0,0,0,.5), 0 2px 6px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0f1114; --surface: #181b20; --surface-2: #21252c;
+  --text: #f1f3f6; --text-2: #b6bcc6; --muted: #7f8794;
+  --border: rgba(255,255,255,.10); --border-2: rgba(255,255,255,.18); --grid: #2a2f37;
+  --accent: #3987e5; --accent-rgb: 57 135 229; --accent-soft: rgba(57,135,229,.18);
+  --good: #3fbf3f; --danger: #e66767; --danger-rgb: 230 103 103;
+  --heat-base: .14; --heat-range: .62;
+  --shadow: 0 10px 30px rgba(0,0,0,.5), 0 2px 6px rgba(0,0,0,.4);
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+[hidden] { display: none !important; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+h2, h3, p { margin: 0; }
+
+.app { max-width: 960px; margin: 0 auto; padding-inline: 16px; padding-block: 0 28px; }
+
+/* header + tabs */
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-block: 14px 10px; padding-top: calc(14px + env(safe-area-inset-top)); }
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 20px; letter-spacing: -.01em; }
+.brand svg { width: 24px; height: 24px; }
+.tabs { display: flex; gap: 2px; background: var(--surface-2); padding: 3px; border-radius: 10px; }
+.tab { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 0; background: transparent; color: var(--text-2); border-radius: 8px; font-weight: 500; }
+.tab svg { width: 18px; height: 18px; }
+.tab[aria-selected="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(20,23,28,.14); }
+@media (max-width: 699px) {
+  .tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; background: var(--surface); border-top: 1px solid var(--border); border-radius: 0; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); justify-content: space-around; }
+  .tab { flex: 1; flex-direction: column; gap: 3px; font-size: 11px; padding: 6px 4px; border-radius: 8px; }
+  .tab svg { width: 22px; height: 22px; }
+  .tab[aria-selected="true"] { background: transparent; box-shadow: none; color: var(--accent); }
+  .app { padding-bottom: 92px; }
+}
+
+/* buttons */
+.icon-btn { width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; border: 0; background: transparent; color: var(--text-2); }
+.icon-btn:hover { background: var(--surface-2); }
+.icon-btn svg { width: 20px; height: 20px; }
+.icon-btn:disabled { opacity: .35; cursor: default; }
+.btn { border: 1px solid var(--border-2); background: var(--surface); color: var(--text); padding: 7px 14px; border-radius: 8px; font-weight: 500; line-height: 1.25; }
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+.btn.primary:hover { filter: brightness(1.08); }
+.btn.quiet { border-color: transparent; background: transparent; color: var(--text-2); }
+.btn.quiet:hover { background: var(--surface-2); }
+.btn.danger { color: var(--danger); }
+.btn:disabled { opacity: .5; cursor: default; }
+
+/* banners + toast */
+.banner { background: var(--accent-soft); border-radius: 10px; padding: 8px 12px; font-size: 13px; margin: 4px 0 8px; display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.banner.warn { background: rgb(var(--danger-rgb) / .12); }
+.banner button { border: 0; background: transparent; color: var(--accent); font-weight: 600; padding: 2px 4px; white-space: nowrap; }
+.toast { position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 8px); background: var(--text); color: var(--bg); padding: 9px 14px; border-radius: 10px; font-size: 13px; z-index: 40; opacity: 0; transition: opacity .2s, transform .2s; box-shadow: var(--shadow); white-space: nowrap; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+@media (max-width: 699px) { .toast { bottom: calc(86px + env(safe-area-inset-bottom)); } }
+
+/* calendar */
+.cal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; }
+.cal-nav { display: flex; align-items: center; gap: 2px; }
+.cal-nav h2 { font-size: 19px; font-weight: 600; margin: 0 4px; min-width: 156px; text-align: center; letter-spacing: -.01em; }
+.cal-summary { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin: 10px 0 12px; }
+.hero { font-size: 34px; font-weight: 600; letter-spacing: -.02em; line-height: 1; }
+.hero .unit { font-size: 18px; color: var(--muted); font-weight: 500; margin-left: 1px; }
+.cal-summary .sub { color: var(--text-2); }
+.goal { flex-basis: 100%; display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text-2); margin-top: 2px; }
+.goal-bar { flex: 1; height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
+.goal-fill { height: 100%; width: 0; background: var(--accent); border-radius: 3px; transition: width .3s ease; }
+
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
+.cal-grid > * { background: var(--surface); min-width: 0; }
+.dow { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); text-align: center; padding: 8px 0 6px; }
+.wk-head, .wk { display: none; }
+.day { position: relative; display: flex; flex-direction: column; justify-content: space-between; align-items: flex-start; min-height: 58px; padding: 5px 6px 6px; border: 0; text-align: left; color: var(--text); background: var(--surface); transition: background-color .15s ease; }
+.day.has { background: linear-gradient(rgb(var(--accent-rgb) / calc(var(--heat-base) + var(--heat) * var(--heat-range))), rgb(var(--accent-rgb) / calc(var(--heat-base) + var(--heat) * var(--heat-range)))), var(--surface); }
+.day.off { background: var(--surface-2); }
+@media (hover: hover) { .day:hover { box-shadow: inset 0 0 0 2px var(--accent-soft); } }
+.day.editing, .day.editing:hover { box-shadow: inset 0 0 0 2px var(--accent); }
+.day .num { font-size: 12px; font-weight: 500; line-height: 20px; min-width: 20px; padding: 0 3px; text-align: center; border-radius: 10px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.day.today .num { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.day .hrs { align-self: flex-end; font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.day.off .hrs { color: var(--muted); font-weight: 500; }
+.day.other .num, .day.other .hrs { color: var(--muted); opacity: .7; }
+.day.other.has { background: linear-gradient(rgb(var(--accent-rgb) / calc((var(--heat-base) + var(--heat) * var(--heat-range)) * .4)), rgb(var(--accent-rgb) / calc((var(--heat-base) + var(--heat) * var(--heat-range)) * .4))), var(--surface); }
+.note-dot { position: absolute; top: 9px; right: 8px; width: 5px; height: 5px; border-radius: 50%; background: var(--text-2); opacity: .75; }
+.empty-hint { font-size: 13px; color: var(--muted); margin: 12px 2px 0; }
+@media (min-width: 700px) {
+  .cal-grid { grid-template-columns: repeat(7, minmax(0, 1fr)) 64px; }
+  .wk-head { display: block; }
+  .wk { display: flex; align-items: flex-end; justify-content: flex-end; padding: 8px 10px; font-size: 12px; color: var(--muted); background: var(--surface-2); font-variant-numeric: tabular-nums; }
+  .day { min-height: 86px; padding: 8px 10px 9px; }
+  .day .hrs { font-size: 15px; }
+  .day .num { font-size: 13px; }
+  .note-dot { top: 12px; right: 10px; }
+}
+
+/* editor: bottom sheet on phone, popover on desktop */
+.editor-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.35); z-index: 29; opacity: 0; transition: opacity .2s ease; }
+.editor-backdrop.open { opacity: 1; }
+.editor { position: fixed; z-index: 30; background: var(--surface); border: 1px solid var(--border); box-shadow: var(--shadow); }
+.editor.sheet { left: 0; right: 0; bottom: 0; border-radius: 18px 18px 0 0; padding: 14px 16px calc(16px + env(safe-area-inset-bottom)); transform: translateY(100%); transition: transform .22s cubic-bezier(.2,.8,.2,1); }
+.editor.sheet.open { transform: none; }
+.editor.popover { position: absolute; width: 320px; border-radius: 12px; padding: 12px 12px 10px; }
+.editor-date { font-weight: 600; font-size: 15px; margin-bottom: 8px; }
+.editor-date small { font-weight: 500; color: var(--muted); margin-left: 6px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.chip { border: 1px solid var(--border-2); background: var(--surface); border-radius: 999px; padding: 4px 11px; font-size: 13px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.chip:hover { border-color: var(--accent); color: var(--accent); }
+.editor input[type="text"] { width: 100%; font-size: 18px; padding: 10px 12px; border: 1px solid var(--border-2); border-radius: 10px; background: var(--bg); color: var(--text); outline: none; font-variant-numeric: tabular-nums; }
+.editor input[type="text"]:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.result { min-height: 20px; font-size: 13px; color: var(--muted); margin: 8px 2px 10px; }
+.result.good { color: var(--text); font-weight: 500; }
+.result.bad { color: var(--danger); font-weight: 500; }
+.editor-actions { display: flex; gap: 8px; align-items: center; }
+.editor-actions .spacer { flex: 1; }
+.editor.shake { animation: shake .3s; }
+@keyframes shake { 20%, 60% { transform: translateX(-4px); } 40%, 80% { transform: translateX(4px); } }
+
+/* stats */
+.seg { display: flex; gap: 4px; background: var(--surface-2); padding: 3px; border-radius: 10px; margin: 4px 0 14px; }
+.seg button { flex: 1; white-space: nowrap; border: 0; background: transparent; padding: 7px 6px; border-radius: 8px; color: var(--text-2); font-weight: 500; font-size: 13px; min-width: 0; }
+.seg button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(20,23,28,.14); }
+.tiles { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.tile { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 12px 14px; min-width: 0; }
+.tile .label { font-size: 12px; color: var(--text-2); }
+.tile .value { font-size: 24px; font-weight: 600; letter-spacing: -.02em; line-height: 1.15; margin-top: 3px; overflow-wrap: anywhere; }
+.tile .value .unit { font-size: 14px; color: var(--muted); font-weight: 500; margin-left: 1px; }
+.tile.hero-tile .value { font-size: 40px; }
+.tile .delta { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.delta.up { color: var(--good); }
+.delta.down { color: var(--danger); }
+.tile.wide { grid-column: span 2; }
+@media (max-width: 699px) { .tile.wide-phone { grid-column: span 2; } }
+@media (min-width: 700px) { .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; } }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 14px 16px; margin-top: 12px; }
+.card-title { font-size: 13px; font-weight: 600; color: var(--text-2); margin-bottom: 8px; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.card-title span { font-weight: 400; color: var(--muted); }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; height: auto; }
+.chart .grid { stroke: var(--grid); stroke-width: 1; }
+.chart .axis { stroke: var(--border-2); stroke-width: 1; }
+.chart .tick, .chart .xlabel { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.chart .bar { fill: var(--accent); }
+.chart .bar.hover { filter: brightness(1.18); }
+.chart .hit { fill: transparent; cursor: pointer; }
+.tip { position: absolute; pointer-events: none; background: var(--text); color: var(--bg); padding: 6px 9px; border-radius: 8px; font-size: 12px; white-space: nowrap; transform: translate(-50%, -100%); box-shadow: var(--shadow); z-index: 5; }
+.tip strong { font-size: 13px; display: block; }
+table.months { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+table.months th { text-align: right; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; padding: 4px 0 8px; }
+table.months th:first-child, table.months td:first-child { text-align: left; }
+table.months td { text-align: right; padding: 7px 0; border-top: 1px solid var(--border); }
+table.months tr.dim td { color: var(--muted); }
+table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-2); }
+.fine { font-size: 12px; color: var(--muted); margin: 12px 2px 0; }
+
+/* settings */
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+.row:first-of-type { border-top: 0; }
+.row label { font-weight: 500; }
+.row select, .row input[type="number"] { padding: 7px 10px; border: 1px solid var(--border-2); border-radius: 8px; background: var(--bg); color: var(--text); max-width: 190px; min-width: 0; }
+.row .inline { display: flex; gap: 6px; }
+.row .inline input { width: 96px; }
+.rate-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 0; border-top: 1px solid var(--border); }
+.rate-row:first-child { border-top: 0; }
+.rate-row input { padding: 7px 10px; border: 1px solid var(--border-2); border-radius: 8px; background: var(--bg); color: var(--text); }
+.rate-row input[type="date"] { width: 150px; }
+.rate-row input[type="number"] { width: 92px; }
+.rate-row .lbl { color: var(--text-2); font-size: 13px; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 8px; }
+.hint { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
+.import-prompt { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; padding: 10px 12px; background: var(--accent-soft); border-radius: 10px; font-size: 13px; }
+.import-prompt span { flex: 1; }
+.footer-note { text-align: center; font-size: 12px; color: var(--muted); margin-top: 20px; }
+/* phone: every control is at least 44px tall */
+@media (max-width: 699px) {
+  .icon-btn { width: 44px; height: 44px; }
+  .btn { min-height: 44px; padding: 10px 16px; }
+  .chip { min-height: 44px; padding: 0 16px; font-size: 15px; }
+  .seg button { min-height: 44px; }
+  .banner button { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 512 512" aria-hidden="true"><rect width="512" height="512" rx="112" fill="var(--accent)"/><circle cx="256" cy="256" r="150" fill="none" stroke="#fff" stroke-width="26"/><path d="M256 256V106a150 150 0 0 1 129.9 225l-129.9-75z" fill="#fff"/></svg>
+      Hours
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <button class="tab" role="tab" data-view="calendar" aria-selected="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Calendar</button>
+      <button class="tab" role="tab" data-view="stats" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 20v-7M11 20V6M17 20v-10M3 20h18"/></svg>Stats</button>
+      <button class="tab" role="tab" data-view="settings" aria-selected="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h9M19 7h1M4 17h3M13 17h7"/><circle cx="16" cy="7" r="2.5"/><circle cx="10" cy="17" r="2.5"/></svg>Settings</button>
+    </nav>
+  </header>
+
+  <div class="banner warn" id="storageWarn" hidden>This browser is blocking storage. Entries won't be kept after you close the page.</div>
+  <div class="banner" id="demoBanner" hidden><span>Demo data. Your real entries are untouched.</span><button type="button" id="exitDemo">Exit demo</button></div>
+
+  <main>
+    <section id="view-calendar" class="view">
+      <div class="cal-head">
+        <div class="cal-nav">
+          <button class="icon-btn" id="prevMonth" type="button" aria-label="Previous month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+          <h2 id="monthTitle">September 2026</h2>
+          <button class="icon-btn" id="nextMonth" type="button" aria-label="Next month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
+        </div>
+        <button class="btn" id="todayBtn" type="button">Today</button>
+      </div>
+      <div class="cal-summary">
+        <div class="hero"><span id="monthHours">0</span><span class="unit" id="monthHoursUnit">h</span></div>
+        <div class="sub"><span id="monthEarnings">$0</span> · <span id="monthDays">0 days</span></div>
+        <div class="goal" id="goalWrap" hidden><div class="goal-bar"><div class="goal-fill" id="goalFill"></div></div><div id="goalLabel"></div></div>
+      </div>
+      <div class="cal-grid" id="calGrid" aria-label="Month"></div>
+      <p class="empty-hint" id="emptyHint" hidden>Tap a day and type how long you worked: <b>7.5</b>, <b>9-5</b>, or <b>9-1, 2-6</b>.</p>
+    </section>
+
+    <section id="view-stats" class="view" hidden>
+      <div class="seg" id="periodChips" role="group" aria-label="Period">
+        <button type="button" data-period="week" aria-pressed="false">Week</button>
+        <button type="button" data-period="month" aria-pressed="true">Month</button>
+        <button type="button" data-period="lastmonth" aria-pressed="false">Last month</button>
+        <button type="button" data-period="year" aria-pressed="false">Year</button>
+        <button type="button" data-period="all" aria-pressed="false">All time</button>
+      </div>
+      <div class="tiles" id="tiles"></div>
+      <div class="card">
+        <div class="card-title" id="chartTitle">Hours per day</div>
+        <div class="chart" id="chart"></div>
+      </div>
+      <div class="card">
+        <div class="card-title" id="tableTitle">By month</div>
+        <table class="months" id="monthTable"></table>
+      </div>
+      <p class="fine" id="statsNote"></p>
+    </section>
+
+    <section id="view-settings" class="view" hidden>
+      <div class="card">
+        <div class="card-title">Hourly rate</div>
+        <div id="ratesList"></div>
+        <div class="btn-row" style="margin-top:8px"><button class="btn" type="button" id="addRate">Add a rate change</button></div>
+        <p class="hint">Each row applies from its date until the next row. Past days keep the rate that was in effect, so a raise doesn't rewrite old months.</p>
+      </div>
+      <div class="card">
+        <div class="row"><label for="setCurrency">Currency</label><select id="setCurrency"></select></div>
+        <div class="row"><label for="setWeekStart">Week starts on</label><select id="setWeekStart"><option value="1">Monday</option><option value="0">Sunday</option></select></div>
+        <div class="row"><label for="setHoursFormat">Hours display</label><select id="setHoursFormat"><option value="decimal">Decimal (7.75)</option><option value="hm">Hours and minutes (7:45)</option></select></div>
+        <div class="row"><label for="setRounding">Round each day to</label><select id="setRounding"><option value="0">No rounding</option><option value="15">Nearest 15 min</option><option value="30">Nearest 30 min</option></select></div>
+        <div class="row"><label for="setUsual">Usual hours per day</label><input type="number" id="setUsual" min="1" max="24" step="0.5" inputmode="decimal"></div>
+        <div class="row"><label for="setGoalType">Monthly goal</label><div class="inline"><select id="setGoalType"><option value="">None</option><option value="hours">Hours</option><option value="money">Money</option></select><input type="number" id="setGoalValue" min="0" step="1" inputmode="decimal" aria-label="Goal amount"></div></div>
+        <div class="row"><label for="setTheme">Theme</label><select id="setTheme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Data</div>
+        <div class="btn-row">
+          <button class="btn" type="button" id="exportJson">Export JSON</button>
+          <button class="btn" type="button" id="exportCsv">Export CSV</button>
+          <button class="btn" type="button" id="importBtn">Import JSON</button>
+          <input type="file" id="importFile" accept=".json,application/json" hidden>
+        </div>
+        <div class="import-prompt" id="importPrompt" hidden>
+          <span id="importCount"></span>
+          <button class="btn" type="button" id="importMerge">Merge</button>
+          <button class="btn" type="button" id="importReplace">Replace</button>
+          <button class="btn quiet" type="button" id="importCancel">Cancel</button>
+        </div>
+        <p class="hint" id="lastExport"></p>
+        <p class="hint">Merge adds days from the file and keeps the newer version of any day that's in both. Replace throws away everything on this device first.</p>
+        <div class="btn-row" style="margin-top:12px"><button class="btn danger" type="button" id="deleteAll">Delete all data</button></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Demo</div>
+        <p class="hint" style="margin:0 0 10px">Try the app with three months of sample data. Your real entries stay where they are.</p>
+        <button class="btn" type="button" id="demoToggle">Load demo data</button>
+      </div>
+      <p class="footer-note">Hours · data lives on this device only. Export JSON is your backup.</p>
+    </section>
+  </main>
+</div>
+
+<div class="editor-backdrop" id="editorBackdrop" hidden></div>
+<div class="editor" id="editor" hidden role="dialog" aria-label="Edit day">
+  <div class="editor-date" id="edDate"></div>
+  <div class="chips" id="edChips" hidden></div>
+  <input id="edInput" type="text" inputmode="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" placeholder="9-5 or 7.5" enterkeyhint="done" aria-label="Hours worked">
+  <div class="result" id="edResult"></div>
+  <div class="editor-actions">
+    <button class="btn quiet danger" type="button" id="edDelete">Clear day</button>
+    <span class="spacer"></span>
+    <button class="btn quiet" type="button" id="edCancel">Cancel</button>
+    <button class="btn primary" type="button" id="edSave">Save</button>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="parser.js"></script>
+<script src="stats.js"></script>
+<script>
+(function () {
+  'use strict';
+  var P = window.HoursParser, S = window.HoursStats;
+  function $(sel, root) { return (root || document).querySelector(sel); }
+  function $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
+  function el(tag, cls) { var e = document.createElement(tag); if (cls) e.className = cls; return e; }
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+
+  /* ---------- storage ---------- */
+  var memory = {}, storageOk = true;
+  try { localStorage.setItem('hours.probe', '1'); localStorage.removeItem('hours.probe'); } catch (e) { storageOk = false; }
+  function storeGet(k) { try { return localStorage.getItem(k); } catch (e) { return memory[k] || null; } }
+  function storeSet(k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { memory[k] = v; return false; } }
+  function storeDel(k) { try { localStorage.removeItem(k); } catch (e) {} delete memory[k]; }
+  function sessionGet(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
+  function sessionSet(k, v) { try { if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (e) {} }
+
+  var DEMO = /[?&#]demo\b/.test(location.search + location.hash) || sessionGet('hours.demo') === '1';
+  var KEY = DEMO ? 'hours.demo.v1' : 'hours.v1';
+  var today = S.keyOf(new Date());
+
+  var MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  var CURRENCIES = ['USD','EUR','GBP','CAD','AUD','ILS','CHF','JPY','INR','NZD','SEK','NOK','DKK','PLN','ZAR','BRL','MXN'];
+
+  function defaultSettings() {
+    return { rates: [{ from: today.slice(0, 4) + '-01-01', rate: 50 }], currency: 'USD', weekStart: 1, hoursFormat: 'decimal', rounding: 0, usualHours: 8, goal: null, theme: 'system', lastExport: null };
+  }
+  var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  // Coerce anything (stored data, an imported file, nothing) into a valid state.
+  function normalize(data) {
+    var d = (data && typeof data === 'object') ? data : {};
+    var s = Object.assign(defaultSettings(), (d.settings && typeof d.settings === 'object') ? d.settings : {});
+    s.rates = (Array.isArray(s.rates) ? s.rates : []).filter(function (r) { return r && DATE_RE.test(r.from); }).map(function (r) { return { from: r.from, rate: +r.rate || 0 }; });
+    if (!s.rates.length) s.rates = defaultSettings().rates;
+    s.currency = (typeof s.currency === 'string' && /^[A-Z]{3}$/.test(s.currency)) ? s.currency : 'USD';
+    s.weekStart = +s.weekStart === 0 ? 0 : 1;
+    s.hoursFormat = s.hoursFormat === 'hm' ? 'hm' : 'decimal';
+    s.rounding = [0, 15, 30].indexOf(+s.rounding) >= 0 ? +s.rounding : 0;
+    s.usualHours = (+s.usualHours > 0 && +s.usualHours <= 24) ? +s.usualHours : 8;
+    s.goal = (s.goal && +s.goal.value > 0 && (s.goal.type === 'hours' || s.goal.type === 'money')) ? { type: s.goal.type, value: +s.goal.value } : null;
+    s.theme = (s.theme === 'light' || s.theme === 'dark') ? s.theme : 'system';
+    s.lastExport = +s.lastExport || null;
+    var days = {};
+    Object.keys((d.days && typeof d.days === 'object') ? d.days : {}).forEach(function (k) {
+      var v = d.days[k];
+      if (!DATE_RE.test(k) || !v || typeof v !== 'object' || v.deleted) return;
+      var raw = typeof v.raw === 'string' ? v.raw.trim() : String(+v.minutes / 60 || 0);
+      var parsed = P.parseEntry(raw); // recompute from the raw text so parser fixes apply to old entries
+      days[k] = { raw: raw, minutes: parsed ? parsed.minutes : Math.max(0, +v.minutes || 0), note: parsed ? parsed.note : (typeof v.note === 'string' ? v.note : ''), updatedAt: +v.updatedAt || 0 };
+    });
+    return { version: 1, settings: s, days: days };
+  }
+  function load() {
+    var raw = storeGet(KEY), data = null;
+    if (raw) { try { data = JSON.parse(raw); } catch (e) { data = null; } }
+    if (!data && DEMO) data = demoData();
+    return normalize(data);
+  }
+  var state = load();
+  function save() {
+    if (!storeSet(KEY, JSON.stringify(state))) toast("Couldn't save. This browser is blocking storage.");
+  }
+
+  /* ---------- formatting ---------- */
+  function fmtH(min) { return S.formatHours(min, state.settings.hoursFormat); }
+  function hoursUnit() { return state.settings.hoursFormat === 'hm' ? '' : 'h'; }
+  function fmtHUnit(min) { return fmtH(min) + hoursUnit(); }
+  var moneyWhole = null, moneyCents = null, moneyFor = '';
+  function fmtMoney(v) {
+    var c = state.settings.currency;
+    if (moneyFor !== c) {
+      try {
+        moneyWhole = new Intl.NumberFormat(undefined, { style: 'currency', currency: c, minimumFractionDigits: 0, maximumFractionDigits: 0 });
+        moneyCents = new Intl.NumberFormat(undefined, { style: 'currency', currency: c, minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      } catch (e) {
+        moneyWhole = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
+        moneyCents = new Intl.NumberFormat(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      }
+      moneyFor = c;
+    }
+    var cents = Math.round(v * 100);
+    return (cents % 100 === 0 ? moneyWhole : moneyCents).format(cents / 100);
+  }
+  function longDate(key) { var d = S.dateOf(key); return DOW[d.getDay()] + ', ' + MON[d.getMonth()] + ' ' + d.getDate(); }
+  function relativeDays(ts) {
+    var days = Math.floor((Date.now() - ts) / 86400000);
+    return days <= 0 ? 'today' : days === 1 ? 'yesterday' : days + ' days ago';
+  }
+
+  /* ---------- theme ---------- */
+  function applyTheme() {
+    var t = state.settings.theme;
+    if (t === 'system') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.setAttribute('data-theme', t);
+    var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim();
+    $$('meta[name="theme-color"]').forEach(function (m) { m.setAttribute('content', t === 'system' ? m.getAttribute('data-default') : bg); });
+  }
+
+  /* ---------- toast ---------- */
+  var toastEl = $('#toast'), toastTimer = null;
+  function toast(msg) {
+    toastEl.textContent = msg; toastEl.hidden = false;
+    requestAnimationFrame(function () { toastEl.classList.add('show'); });
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.classList.remove('show'); setTimeout(function () { toastEl.hidden = true; }, 200); }, 2600);
+  }
+
+  /* ---------- views ---------- */
+  var currentView = 'calendar';
+  function showView(name) {
+    closeEditor(true);
+    currentView = name;
+    ['calendar', 'stats', 'settings'].forEach(function (v) {
+      $('#view-' + v).hidden = v !== name;
+      $$('.tab[data-view="' + v + '"]').forEach(function (b) { b.setAttribute('aria-selected', v === name ? 'true' : 'false'); });
+    });
+    if (name === 'calendar') renderCalendar(); else if (name === 'stats') renderStats(); else renderSettings();
+    window.scrollTo(0, 0);
+  }
+  $$('.tab').forEach(function (b) { b.addEventListener('click', function () { showView(b.dataset.view); }); });
+
+  /* ---------- calendar ---------- */
+  var view = { y: +today.slice(0, 4), m: +today.slice(5, 7) };
+  var gridKeys = [];
+  function viewMonthKey() { return view.y + '-' + pad2(view.m); }
+
+  function renderCalendar() {
+    var s = state.settings;
+    $('#monthTitle').textContent = MONTHS[view.m - 1] + ' ' + view.y;
+    renderSummary();
+    var grid = $('#calGrid'), frag = document.createDocumentFragment();
+    for (var i = 0; i < 7; i++) { var h = el('div', 'dow'); h.textContent = DOW[(s.weekStart + i) % 7]; frag.appendChild(h); }
+    var wkh = el('div', 'dow wk-head'); wkh.textContent = 'Week'; frag.appendChild(wkh);
+    gridKeys = [];
+    var k = S.startOfWeek(S.monthStart(view.y, view.m), s.weekStart);
+    for (var r = 0; r < 6; r++) {
+      for (var c = 0; c < 7; c++) {
+        var cell = el('button', 'day'); cell.type = 'button'; cell.dataset.key = k;
+        renderCell(cell, k); frag.appendChild(cell); gridKeys.push(k);
+        k = S.addDays(k, 1);
+      }
+      var wk = el('div', 'wk'); wk.dataset.row = r; frag.appendChild(wk);
+    }
+    grid.innerHTML = ''; grid.appendChild(frag);
+    for (var row = 0; row < 6; row++) updateWeekTotal(gridKeys[row * 7]);
+    $('#emptyHint').hidden = Object.keys(state.days).length > 0;
+  }
+  function renderSummary() {
+    var s = state.settings;
+    var agg = S.aggregate(state.days, S.monthStart(view.y, view.m), S.monthEnd(view.y, view.m), s);
+    $('#monthHours').textContent = fmtH(agg.minutes);
+    $('#monthHoursUnit').textContent = hoursUnit();
+    $('#monthEarnings').textContent = fmtMoney(agg.earnings);
+    $('#monthDays').textContent = agg.daysWorked + (agg.daysWorked === 1 ? ' day worked' : ' days worked');
+    var g = s.goal, wrap = $('#goalWrap');
+    wrap.hidden = !g;
+    if (g) {
+      var cur = g.type === 'hours' ? agg.minutes / 60 : agg.earnings;
+      var pct = Math.min(100, cur / g.value * 100);
+      $('#goalFill').style.width = pct.toFixed(1) + '%';
+      $('#goalLabel').textContent = Math.round(pct) + '% of ' + (g.type === 'hours' ? fmtHUnit(g.value * 60) : fmtMoney(g.value)) + ' goal';
+    }
+  }
+  function renderCell(cell, k) {
+    var s = state.settings, d = state.days[k], other = k.slice(0, 7) !== viewMonthKey();
+    cell.className = 'day' + (other ? ' other' : '') + (k === today ? ' today' : '') + (d ? ' has' : '') + (d && d.minutes === 0 ? ' off' : '');
+    cell.style.setProperty('--heat', d ? Math.min(1, d.minutes / (s.usualHours * 60)).toFixed(3) : '0');
+    cell.innerHTML = '';
+    var num = el('span', 'num'); num.textContent = S.dateOf(k).getDate(); cell.appendChild(num);
+    if (d) { var hrs = el('span', 'hrs'); hrs.textContent = d.minutes === 0 ? 'off' : fmtH(d.minutes); cell.appendChild(hrs); }
+    if (d && d.note) { var dot = el('span', 'note-dot'); cell.appendChild(dot); }
+    cell.setAttribute('aria-label', longDate(k) + (d ? ', ' + S.formatDuration(d.minutes) + (d.note ? ', note: ' + d.note : '') : ', no entry'));
+  }
+  function updateWeekTotal(k) {
+    var idx = gridKeys.indexOf(k); if (idx < 0) return;
+    var row = Math.floor(idx / 7), sum = 0;
+    for (var i = 0; i < 7; i++) { var d = state.days[gridKeys[row * 7 + i]]; if (d) sum += S.roundMinutes(d.minutes, state.settings.rounding); }
+    var wk = $('#calGrid .wk[data-row="' + row + '"]'); if (wk) wk.textContent = sum ? fmtH(sum) : '';
+  }
+  function afterChange(key) {
+    var cell = $('#calGrid .day[data-key="' + key + '"]');
+    if (cell) renderCell(cell, key);
+    updateWeekTotal(key);
+    renderSummary();
+    $('#emptyHint').hidden = Object.keys(state.days).length > 0;
+  }
+  function goToMonth(y, m) { closeEditor(true); view.y = y; view.m = m; renderCalendar(); }
+  $('#prevMonth').addEventListener('click', function () { var p = S.addMonths(view.y, view.m, -1); goToMonth(p.y, p.m); });
+  $('#nextMonth').addEventListener('click', function () { var p = S.addMonths(view.y, view.m, 1); goToMonth(p.y, p.m); });
+  $('#todayBtn').addEventListener('click', function () { goToMonth(+today.slice(0, 4), +today.slice(5, 7)); openEditor(today); });
+  $('#calGrid').addEventListener('click', function (e) { var c = e.target.closest('.day'); if (c) openEditor(c.dataset.key); });
+
+  /* ---------- editor ---------- */
+  var editor = $('#editor'), edInput = $('#edInput'), edResult = $('#edResult'), edChips = $('#edChips'), backdrop = $('#editorBackdrop');
+  var editing = null, editingOriginal = '';
+  var mqDesktop = window.matchMedia('(min-width: 700px)');
+  function isDesktop() { return mqDesktop.matches; }
+
+  function openEditor(key) {
+    if (editing !== null) closeEditor(true);
+    if (key.slice(0, 7) !== viewMonthKey()) { view.y = +key.slice(0, 4); view.m = +key.slice(5, 7); renderCalendar(); }
+    var cell = $('#calGrid .day[data-key="' + key + '"]');
+    var d = state.days[key];
+    editing = key; editingOriginal = d ? d.raw : '';
+    edInput.value = editingOriginal;
+    $('#edDate').textContent = longDate(key);
+    if (key === today) { var t = el('small'); t.textContent = 'Today'; $('#edDate').appendChild(t); }
+    $('#edDelete').hidden = !d;
+    renderChips(); updateResult();
+    if (cell) cell.classList.add('editing');
+    editor.classList.remove('open', 'shake'); backdrop.classList.remove('open');
+    editor.hidden = false;
+    if (isDesktop()) { editor.className = 'editor popover'; backdrop.hidden = true; positionPopover(cell); }
+    else { editor.className = 'editor sheet'; backdrop.hidden = false; }
+    requestAnimationFrame(function () { editor.classList.add('open'); backdrop.classList.add('open'); });
+    edInput.focus(); edInput.select();
+  }
+  function positionPopover(cell) {
+    if (!cell) return;
+    var r = cell.getBoundingClientRect(), w = editor.offsetWidth || 320, h = editor.offsetHeight || 200;
+    var left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2));
+    var top = r.bottom + 8;
+    if (top + h > window.innerHeight - 8 && r.top - 8 - h > 8) top = r.top - 8 - h;
+    editor.style.left = (left + window.scrollX) + 'px';
+    editor.style.top = (top + window.scrollY) + 'px';
+  }
+  function closeEditor(commit) {
+    if (editing === null) return;
+    if (commit) commitEntry(); // text that can't be read is dropped, never saved
+    editing = null;
+    editor.hidden = true; backdrop.hidden = true;
+    editor.classList.remove('open'); backdrop.classList.remove('open');
+    $$('#calGrid .day.editing').forEach(function (c) { c.classList.remove('editing'); });
+  }
+  // true when the day was saved, cleared, or left unchanged; false when the text can't be read.
+  function commitEntry() {
+    var key = editing, text = edInput.value.trim();
+    if (!text) {
+      if (state.days[key]) { delete state.days[key]; save(); afterChange(key); }
+      return true;
+    }
+    if (text === editingOriginal) return true;
+    var parsed = P.parseEntry(text);
+    if (!parsed) return false;
+    state.days[key] = { raw: text, minutes: parsed.minutes, note: parsed.note, updatedAt: Date.now() };
+    save(); afterChange(key);
+    return true;
+  }
+  function flagInvalid() {
+    updateResult();
+    editor.classList.remove('shake'); void editor.offsetWidth; editor.classList.add('shake');
+    edInput.focus();
+  }
+  function updateResult() {
+    var text = edInput.value.trim();
+    edResult.className = 'result';
+    if (!text) { edResult.textContent = state.days[editing] ? 'Empty. Saving clears this day.' : 'Hours (7.5) or times (9-5, or 9-1, 2-6 with a break).'; return; }
+    var p = P.parseEntry(text);
+    if (!p) { edResult.textContent = "Can't read that"; edResult.classList.add('bad'); return; }
+    edResult.textContent = '= ' + (p.minutes === 0 ? '0h, a day off' : S.formatDuration(p.minutes)) + (p.note ? ' · note: ' + p.note : '');
+    edResult.classList.add('good');
+  }
+  function recentValues() {
+    var seen = {}, out = [];
+    Object.keys(state.days).map(function (k) { return state.days[k]; })
+      .sort(function (a, b) { return b.updatedAt - a.updatedAt; })
+      .forEach(function (d) {
+        var v = d.raw.split('#')[0].trim();
+        if (!v || seen[v] || out.length >= 3) return;
+        seen[v] = 1; out.push(v);
+      });
+    return out;
+  }
+  function renderChips() {
+    edChips.innerHTML = '';
+    var vals = recentValues();
+    edChips.hidden = !vals.length;
+    vals.forEach(function (v) {
+      var b = el('button', 'chip'); b.type = 'button'; b.textContent = v;
+      b.addEventListener('pointerdown', function (e) { e.preventDefault(); }); // keep the keyboard up
+      b.addEventListener('click', function () { edInput.value = v; updateResult(); edInput.focus(); });
+      edChips.appendChild(b);
+    });
+  }
+  edInput.addEventListener('input', updateResult);
+  edInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); if (commitEntry()) closeEditor(false); else flagInvalid(); }
+    else if (e.key === 'Escape') { e.preventDefault(); closeEditor(false); }
+    else if (e.key === 'Tab' && isDesktop()) {
+      e.preventDefault();
+      if (!commitEntry()) { flagInvalid(); return; }
+      var next = S.addDays(editing, e.shiftKey ? -1 : 1);
+      closeEditor(false); openEditor(next);
+    }
+  });
+  $('#edSave').addEventListener('click', function () { if (commitEntry()) closeEditor(false); else flagInvalid(); });
+  $('#edCancel').addEventListener('click', function () { closeEditor(false); });
+  $('#edDelete').addEventListener('click', function () { edInput.value = ''; commitEntry(); closeEditor(false); });
+  backdrop.addEventListener('click', function () { closeEditor(true); });
+  document.addEventListener('pointerdown', function (e) {
+    if (editing === null || !isDesktop() || editor.contains(e.target)) return;
+    closeEditor(true);
+  });
+  mqDesktop.addEventListener('change', function () { closeEditor(true); });
+  window.addEventListener('resize', debounce(function () {
+    if (editing !== null && isDesktop()) positionPopover($('#calGrid .day[data-key="' + editing + '"]'));
+    if (currentView === 'stats') renderStats();
+  }, 120));
+  function debounce(fn, ms) { var t; return function () { clearTimeout(t); t = setTimeout(fn, ms); }; }
+
+  /* ---------- stats ---------- */
+  var period = 'month';
+  $$('#periodChips button').forEach(function (b) {
+    b.addEventListener('click', function () {
+      period = b.dataset.period;
+      $$('#periodChips button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); });
+      renderStats();
+    });
+  });
+  function firstEntryKey() { var keys = Object.keys(state.days).sort(); return keys[0] || today; }
+
+  function renderStats() {
+    var s = state.settings;
+    var r = S.periodRange(period, today, s.weekStart);
+    var agg = S.aggregate(state.days, r.start, r.end, s);
+    var prev = r.prevStart ? S.aggregate(state.days, r.prevStart, r.prevEnd, s) : null;
+    var toDate = (period === 'week' || period === 'month' || period === 'year') ? S.aggregate(state.days, r.start, today, s) : agg;
+    var showMonth = period === 'year' || period === 'all';
+
+    var tiles = $('#tiles'); tiles.innerHTML = '';
+    function tile(label, value, unit, sub, cls) {
+      var t = el('div', 'tile' + (cls ? ' ' + cls : ''));
+      var l = el('div', 'label'); l.textContent = label; t.appendChild(l);
+      var v = el('div', 'value'); v.textContent = value;
+      if (unit) { var u = el('span', 'unit'); u.textContent = unit; v.appendChild(u); }
+      t.appendChild(v);
+      var d = el('div', 'delta' + (sub && sub.cls ? ' ' + sub.cls : '')); d.textContent = sub ? sub.text : ''; t.appendChild(d);
+      tiles.appendChild(t);
+    }
+    function delta(cur, prevVal, label) {
+      if (!prev) return { text: 'Everything you’ve logged', cls: '' };
+      if (!prevVal) return { text: 'Nothing logged ' + label, cls: '' };
+      var pct = S.pctChange(cur, prevVal), rounded = Math.round(pct);
+      if (rounded === 0) return { text: 'Same as ' + label, cls: '' };
+      return { text: (rounded > 0 ? '+' : '−') + Math.abs(rounded) + '% vs ' + label, cls: rounded > 0 ? 'up' : 'down' };
+    }
+    tile('Total hours', fmtH(agg.minutes), hoursUnit(), delta(toDate.minutes, prev && prev.minutes, r.prevLabel), 'hero-tile ' + (showMonth ? 'wide-phone' : 'wide'));
+    tile('Earnings', fmtMoney(agg.earnings), '', delta(toDate.earnings, prev && prev.earnings, r.prevLabel), showMonth ? 'wide-phone' : '');
+    tile('Days worked', String(agg.daysWorked), '', { text: agg.weeksWorked + (agg.weeksWorked === 1 ? ' week' : ' weeks') + ' with work' });
+    tile('Avg per worked day', fmtH(agg.avgDay), hoursUnit(), { text: agg.daysWorked ? 'Across ' + agg.daysWorked + (agg.daysWorked === 1 ? ' day' : ' days') : 'No days yet' });
+    tile('Avg per week', fmtH(agg.avgWeek), hoursUnit(), { text: agg.weeksWorked ? 'Across ' + agg.weeksWorked + (agg.weeksWorked === 1 ? ' week' : ' weeks') : 'No weeks yet' });
+    if (showMonth) tile('Avg per month', fmtH(agg.avgMonth), hoursUnit(), { text: agg.monthsWorked ? 'Across ' + agg.monthsWorked + (agg.monthsWorked === 1 ? ' month' : ' months') : 'No months yet' });
+
+    renderChart(r, agg);
+    renderTable(r);
+    $('#statsNote').textContent = prev ? (period === 'lastmonth' ? 'Compared with the month before.' : 'Comparisons are to the same point in the previous period.') : '';
+  }
+
+  function renderChart(r, agg) {
+    var items = [], title, k, i;
+    if (period === 'year' || period === 'all') {
+      title = 'Hours per month';
+      var mkeys = [];
+      if (period === 'year') { for (i = 1; i <= 12; i++) mkeys.push(today.slice(0, 4) + '-' + pad2(i)); }
+      else {
+        var f = firstEntryKey(), y = +f.slice(0, 4), m = +f.slice(5, 7);
+        while (y + '-' + pad2(m) <= today.slice(0, 7)) { mkeys.push(y + '-' + pad2(m)); var nm = S.addMonths(y, m, 1); y = nm.y; m = nm.m; }
+      }
+      var dense = mkeys.length > 14;
+      mkeys.forEach(function (mk, idx) {
+        var mi = +mk.slice(5, 7) - 1, show = !dense || mi === 0 || mi === 6 || (idx === 0 && mi < 6);
+        items.push({ value: (agg.byMonth[mk] ? agg.byMonth[mk].minutes : 0), money: agg.byMonth[mk] ? agg.byMonth[mk].earnings : 0,
+          label: show ? (dense && (mi === 0 || idx === 0) ? MON[mi] + ' ’' + mk.slice(2, 4) : MON[mi]) : '', tip: MONTHS[mi] + ' ' + mk.slice(0, 4) });
+      });
+    } else {
+      title = 'Hours per day';
+      var s = state.settings;
+      for (k = r.start; k <= r.end; k = S.addDays(k, 1)) {
+        var dn = S.dateOf(k).getDate(), min = agg.byDay[k] || 0;
+        items.push({ value: min, money: min / 60 * S.rateFor(s.rates, k),
+          label: period === 'week' ? DOW[S.dateOf(k).getDay()] : (dn === 1 || dn % 5 === 0 ? String(dn) : ''), tip: longDate(k) });
+      }
+    }
+    var ct = $('#chartTitle'); ct.textContent = title; var span = el('span'); span.textContent = r.label; ct.appendChild(span);
+    drawBars($('#chart'), items, period === 'year' || period === 'all' ? 40 * 60 : 8 * 60);
+  }
+
+  var NICE = [1, 2, 4, 5, 8, 10, 12, 16, 20, 24, 30, 40, 50, 60, 80, 100, 120, 160, 200, 240, 300, 400, 500, 600, 800, 1000];
+  function niceMax(hours, fallback) {
+    if (hours <= 0) return fallback;
+    for (var i = 0; i < NICE.length; i++) if (NICE[i] >= hours) return NICE[i];
+    return Math.ceil(hours / 500) * 500;
+  }
+  function svgEl(tag, attrs) { var e = document.createElementNS('http://www.w3.org/2000/svg', tag); Object.keys(attrs || {}).forEach(function (a) { e.setAttribute(a, attrs[a]); }); return e; }
+  var pinned = -1;
+  function drawBars(container, items, fallbackMax) {
+    container.innerHTML = '';
+    var W = Math.max(240, container.clientWidth || 600), H = isDesktop() ? 210 : 170;
+    var padL = 34, padR = 6, padT = 12, padB = 24, plotW = W - padL - padR, plotH = H - padT - padB;
+    var max = 0; items.forEach(function (it) { if (it.value > max) max = it.value; });
+    var ymax = niceMax(max / 60, fallbackMax / 60);
+    var svg = svgEl('svg', { viewBox: '0 0 ' + W + ' ' + H, width: W, height: H, role: 'img', 'aria-label': 'Bar chart' });
+    [0, 0.5, 1].forEach(function (f) {
+      var y = padT + plotH - f * plotH;
+      svg.appendChild(svgEl('line', { x1: padL, x2: W - padR, y1: y, y2: y, class: f === 0 ? 'axis' : 'grid' }));
+      var t = svgEl('text', { x: padL - 6, y: y + 4, class: 'tick', 'text-anchor': 'end' });
+      t.textContent = S.formatHours(ymax * f * 60, 'decimal'); svg.appendChild(t);
+    });
+    var n = items.length, band = plotW / n, barW = Math.max(2, Math.min(24, band - 2));
+    var tip = el('div', 'tip'); tip.hidden = true; container.appendChild(tip);
+    var bars = [];
+    function showTip(i) {
+      var it = items[i], x = padL + i * band + band / 2, h = it.value / 60 / ymax * plotH;
+      bars.forEach(function (b, j) { if (b) b.classList.toggle('hover', j === i); });
+      tip.innerHTML = '';
+      var strong = el('strong'); strong.textContent = fmtHUnit(it.value) + (it.value ? ' · ' + fmtMoney(it.money) : ''); tip.appendChild(strong);
+      tip.appendChild(document.createTextNode(it.tip));
+      tip.hidden = false;
+      var scale = container.clientWidth / W;
+      var left = Math.max(70, Math.min(container.clientWidth - 70, x * scale));
+      tip.style.left = left + 'px'; tip.style.top = Math.max(0, (padT + plotH - h) * scale - 8) + 'px';
+    }
+    function hideTip() { tip.hidden = true; bars.forEach(function (b) { if (b) b.classList.remove('hover'); }); }
+    items.forEach(function (it, i) {
+      var x = padL + i * band + (band - barW) / 2, h = it.value / 60 / ymax * plotH, y = padT + plotH - h;
+      if (it.value > 0) {
+        var rr = Math.min(4, barW / 2, h);
+        var d = 'M' + x + ' ' + (padT + plotH) + 'V' + (y + rr) + 'a' + rr + ' ' + rr + ' 0 0 1 ' + rr + ' -' + rr + 'h' + (barW - 2 * rr) + 'a' + rr + ' ' + rr + ' 0 0 1 ' + rr + ' ' + rr + 'V' + (padT + plotH) + 'z';
+        var bar = svgEl('path', { d: d, class: 'bar' }); svg.appendChild(bar); bars[i] = bar;
+      }
+      if (it.label) { var t = svgEl('text', { x: x + barW / 2, y: H - 8, class: 'xlabel', 'text-anchor': 'middle' }); t.textContent = it.label; svg.appendChild(t); }
+      var hit = svgEl('rect', { x: padL + i * band, y: padT, width: band, height: plotH, class: 'hit' });
+      hit.addEventListener('pointerenter', function (e) { if (e.pointerType === 'mouse') showTip(i); });
+      hit.addEventListener('pointerleave', function (e) { if (e.pointerType === 'mouse' && pinned !== i) hideTip(); });
+      hit.addEventListener('click', function () { if (pinned === i) { pinned = -1; hideTip(); } else { pinned = i; showTip(i); } });
+      svg.appendChild(hit);
+    });
+    pinned = -1;
+    container.appendChild(svg);
+  }
+
+  function renderTable(r) {
+    var s = state.settings, table = $('#monthTable'), rows = [], title;
+    table.innerHTML = '';
+    if (period === 'all') {
+      var all = S.aggregate(state.days, null, null, s);
+      Object.keys(all.byMonth).sort().reverse().forEach(function (mk) { rows.push({ label: MON[+mk.slice(5, 7) - 1] + ' ' + mk.slice(0, 4), a: all.byMonth[mk] }); });
+      title = 'All time';
+    } else {
+      var y = period === 'lastmonth' ? r.start.slice(0, 4) : today.slice(0, 4);
+      var yr = S.aggregate(state.days, y + '-01-01', y + '-12-31', s);
+      var last = y === today.slice(0, 4) ? +today.slice(5, 7) : 12;
+      for (var m = 1; m <= last; m++) { var mk = y + '-' + pad2(m); rows.push({ label: MON[m - 1], a: yr.byMonth[mk] || { minutes: 0, earnings: 0, days: 0 } }); }
+      title = y;
+    }
+    var tt = $('#tableTitle'); tt.textContent = 'By month'; var sp = el('span'); sp.textContent = title; tt.appendChild(sp);
+    var thead = el('thead'), hr = el('tr');
+    ['Month', 'Days', 'Hours', 'Earnings'].forEach(function (h) { var th = el('th'); th.textContent = h; hr.appendChild(th); });
+    thead.appendChild(hr); table.appendChild(thead);
+    var tbody = el('tbody'), tm = 0, te = 0, td = 0;
+    rows.forEach(function (row) {
+      var tr = el('tr', row.a.minutes ? '' : 'dim');
+      [row.label, String(row.a.days), fmtH(row.a.minutes), fmtMoney(row.a.earnings)].forEach(function (v) { var c = el('td'); c.textContent = v; tr.appendChild(c); });
+      tbody.appendChild(tr); tm += row.a.minutes; te += row.a.earnings; td += row.a.days;
+    });
+    if (rows.length > 1) {
+      var tr2 = el('tr', 'total');
+      ['Total', String(td), fmtH(tm), fmtMoney(te)].forEach(function (v) { var c = el('td'); c.textContent = v; tr2.appendChild(c); });
+      tbody.appendChild(tr2);
+    }
+    if (!rows.length) { var tr3 = el('tr', 'dim'), c3 = el('td'); c3.colSpan = 4; c3.textContent = 'Nothing logged yet.'; tr3.appendChild(c3); tbody.appendChild(tr3); }
+    table.appendChild(tbody);
+  }
+
+  /* ---------- settings ---------- */
+  var cur = $('#setCurrency');
+  CURRENCIES.forEach(function (c) { var o = el('option'); o.value = c; o.textContent = c; cur.appendChild(o); });
+  function renderSettings() {
+    var s = state.settings;
+    renderRates();
+    if (CURRENCIES.indexOf(s.currency) < 0) { var o = el('option'); o.value = s.currency; o.textContent = s.currency; cur.appendChild(o); }
+    cur.value = s.currency;
+    $('#setWeekStart').value = String(s.weekStart);
+    $('#setHoursFormat').value = s.hoursFormat;
+    $('#setRounding').value = String(s.rounding);
+    $('#setUsual').value = s.usualHours;
+    $('#setGoalType').value = s.goal ? s.goal.type : '';
+    $('#setGoalValue').value = s.goal ? s.goal.value : '';
+    $('#setGoalValue').hidden = !$('#setGoalType').value;
+    $('#setTheme').value = s.theme;
+    $('#lastExport').textContent = s.lastExport ? 'Last exported ' + relativeDays(s.lastExport) + '.' : 'Never exported.';
+    $('#demoToggle').textContent = DEMO ? 'Exit demo' : 'Load demo data';
+  }
+  function renderRates() {
+    var list = $('#ratesList'); list.innerHTML = '';
+    var rows = S.sortedRates(state.settings.rates);
+    rows.forEach(function (r, i) {
+      var row = el('div', 'rate-row');
+      var l1 = el('span', 'lbl'); l1.textContent = 'From'; row.appendChild(l1);
+      var from = el('input'); from.type = 'date'; from.value = r.from; from.setAttribute('aria-label', 'From date'); row.appendChild(from);
+      var l2 = el('span', 'lbl'); l2.textContent = 'at'; row.appendChild(l2);
+      var rate = el('input'); rate.type = 'number'; rate.min = '0'; rate.step = '0.01'; rate.inputMode = 'decimal'; rate.value = r.rate; rate.setAttribute('aria-label', 'Hourly rate'); row.appendChild(rate);
+      var l3 = el('span', 'lbl'); l3.textContent = state.settings.currency + ' per hour'; row.appendChild(l3);
+      var del = el('button', 'icon-btn'); del.type = 'button'; del.setAttribute('aria-label', 'Remove this rate'); del.disabled = rows.length === 1;
+      del.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+      row.appendChild(del);
+      from.addEventListener('change', function () { if (DATE_RE.test(from.value)) { r.from = from.value; state.settings.rates = rows; save(); renderRates(); } });
+      rate.addEventListener('input', function () { r.rate = +rate.value || 0; state.settings.rates = rows; save(); });
+      del.addEventListener('click', function () { rows.splice(i, 1); state.settings.rates = rows; save(); renderRates(); });
+      list.appendChild(row);
+    });
+  }
+  $('#addRate').addEventListener('click', function () {
+    var rows = S.sortedRates(state.settings.rates);
+    rows.push({ from: today, rate: rows[rows.length - 1].rate });
+    state.settings.rates = rows; save(); renderRates();
+    var inputs = $$('#ratesList input[type="number"]'); if (inputs.length) { inputs[inputs.length - 1].focus(); inputs[inputs.length - 1].select(); }
+  });
+  function bindSetting(id, apply) { $(id).addEventListener('change', function () { apply(this.value); save(); renderSettings(); }); }
+  bindSetting('#setCurrency', function (v) { state.settings.currency = v; });
+  bindSetting('#setWeekStart', function (v) { state.settings.weekStart = +v; });
+  bindSetting('#setHoursFormat', function (v) { state.settings.hoursFormat = v; });
+  bindSetting('#setRounding', function (v) { state.settings.rounding = +v; });
+  bindSetting('#setUsual', function (v) { state.settings.usualHours = (+v > 0 && +v <= 24) ? +v : 8; });
+  bindSetting('#setTheme', function (v) { state.settings.theme = v; applyTheme(); });
+  function applyGoal() {
+    var type = $('#setGoalType').value, val = +$('#setGoalValue').value;
+    state.settings.goal = (type && val > 0) ? { type: type, value: val } : null;
+    save();
+  }
+  $('#setGoalType').addEventListener('change', function () { $('#setGoalValue').hidden = !this.value; if (this.value) { if (!$('#setGoalValue').value) $('#setGoalValue').value = this.value === 'hours' ? 160 : ''; $('#setGoalValue').focus(); } applyGoal(); });
+  $('#setGoalValue').addEventListener('input', applyGoal);
+
+  /* data */
+  function download(name, text, type) {
+    var blob = new Blob([text], { type: type }), url = URL.createObjectURL(blob);
+    var a = el('a'); a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+  function markExported() { state.settings.lastExport = Date.now(); save(); renderSettings(); toast('Exported'); }
+  function csv(v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  $('#exportJson').addEventListener('click', function () { download('hours-backup-' + today + '.json', JSON.stringify(state, null, 2), 'application/json'); markExported(); });
+  $('#exportCsv').addEventListener('click', function () {
+    var s = state.settings, lines = ['date,entry,hours,earnings,note'];
+    Object.keys(state.days).sort().forEach(function (k) {
+      var d = state.days[k], m = S.roundMinutes(d.minutes, s.rounding);
+      lines.push([k, csv(d.raw), (m / 60).toFixed(2), (m / 60 * S.rateFor(s.rates, k)).toFixed(2), csv(d.note)].join(','));
+    });
+    download('hours-' + today + '.csv', lines.join('\n'), 'text/csv'); markExported();
+  });
+  var pendingImport = null;
+  $('#importBtn').addEventListener('click', function () { $('#importFile').click(); });
+  $('#importFile').addEventListener('change', function () {
+    var f = this.files && this.files[0]; this.value = ''; if (!f) return;
+    var reader = new FileReader();
+    reader.onload = function () {
+      var data;
+      try { data = JSON.parse(reader.result); } catch (e) { toast("That file isn't valid JSON."); return; }
+      if (!data || typeof data !== 'object' || !data.days || typeof data.days !== 'object') { toast("That file doesn't look like a Hours backup."); return; }
+      pendingImport = normalize(data);
+      var n = Object.keys(pendingImport.days).length;
+      $('#importCount').textContent = 'The file has ' + n + (n === 1 ? ' day.' : ' days.') + ' Merge it in, or replace everything?';
+      $('#importPrompt').hidden = false;
+    };
+    reader.readAsText(f);
+  });
+  $('#importMerge').addEventListener('click', function () {
+    var added = 0, updated = 0;
+    Object.keys(pendingImport.days).forEach(function (k) {
+      var mine = state.days[k], theirs = pendingImport.days[k];
+      if (!mine) { state.days[k] = theirs; added++; } else if (theirs.updatedAt > mine.updatedAt) { state.days[k] = theirs; updated++; }
+    });
+    save(); pendingImport = null; $('#importPrompt').hidden = true;
+    toast('Merged: ' + added + ' added, ' + updated + ' updated');
+  });
+  $('#importReplace').addEventListener('click', function () {
+    state = pendingImport; pendingImport = null; save(); applyTheme(); $('#importPrompt').hidden = true; renderSettings();
+    toast('Replaced with ' + Object.keys(state.days).length + ' days');
+  });
+  $('#importCancel').addEventListener('click', function () { pendingImport = null; $('#importPrompt').hidden = true; });
+  $('#deleteAll').addEventListener('click', function () {
+    if (!confirm('Delete every entry and all settings on this device? This cannot be undone.')) return;
+    state = normalize(null); storeDel(KEY); save(); applyTheme(); renderSettings(); toast('All data deleted');
+  });
+  function toggleDemo() { sessionSet('hours.demo', DEMO ? null : '1'); location.href = location.pathname; }
+  $('#demoToggle').addEventListener('click', toggleDemo);
+  $('#exitDemo').addEventListener('click', toggleDemo);
+
+  /* ---------- demo data ---------- */
+  function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function demoData() {
+    var rnd = mulberry32(20260914), days = {};
+    var patterns = ['9-5', '9-1, 2-6', '8', '7.5', '9:30-17:15', '8:30-4:30', '10-6', '9-3', '9-5', '9-1, 2-6', '8-4', '9-6'];
+    var notes = ['client call', 'site visit', 'invoice sent', 'late start', 'deadline day'];
+    for (var k = S.addDays(today, -100); k <= today; k = S.addDays(k, 1)) {
+      var dow = S.dateOf(k).getDay(), raw = null;
+      if (dow >= 1 && dow <= 5) { if (rnd() < 0.86) raw = patterns[Math.floor(rnd() * patterns.length)]; else if (rnd() < 0.5) raw = '0' + (rnd() < 0.5 ? ' # day off' : ''); }
+      else if (dow === 0 && rnd() < 0.15) raw = '10-2';
+      if (raw === null) continue;
+      if (raw !== '0' && raw.indexOf('#') < 0 && rnd() < 0.12) raw += ' # ' + notes[Math.floor(rnd() * notes.length)];
+      var p = P.parseEntry(raw);
+      days[k] = { raw: raw, minutes: p.minutes, note: p.note, updatedAt: S.dateOf(k).getTime() + 64800000 };
+    }
+    var y = +today.slice(0, 4), m = +today.slice(5, 7), lm = S.addMonths(y, m, -1);
+    return { version: 1, days: days, settings: Object.assign(defaultSettings(), { rates: [{ from: y + '-01-01', rate: 50 }, { from: S.monthStart(lm.y, lm.m), rate: 60 }], goal: { type: 'hours', value: 150 } }) };
+  }
+
+  /* ---------- boot ---------- */
+  applyTheme();
+  $('#storageWarn').hidden = storageOk;
+  $('#demoBanner').hidden = !DEMO;
+  showView('calendar');
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'visible') return;
+    var now = S.keyOf(new Date());
+    if (now !== today) { today = now; closeEditor(true); showView(currentView); }
+  });
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
+    window.addEventListener('load', function () { try { navigator.serviceWorker.register('./sw.js').catch(function () {}); } catch (e) {} });
+  }
+})();
+</script>
+</body>
+</html>

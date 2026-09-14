@@ -1,0 +1,13 @@
+[build]
+  publish = "."
+
+# The service worker must never be cached by the browser, or updates never land.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Content-Type = "application/manifest+json"
