@@ -114,6 +114,23 @@ h2, h3, p { margin: 0; }
 .goal-bar { flex: 1; height: 6px; border-radius: 3px; background: var(--surface-2); overflow: hidden; }
 .goal-fill { height: 100%; width: 0; background: var(--accent); border-radius: 3px; transition: width .3s ease; }
 
+/* start/end timer */
+.timer { display: flex; align-items: center; margin-left: auto; }
+.timer-run { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 12px; row-gap: 2px; }
+.timer-clock { display: flex; align-items: center; gap: 8px; font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em; line-height: 1.2; }
+.pulse { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .35; transform: scale(.7); } }
+.timer-since { font-size: 13px; color: var(--text-2); display: flex; align-items: center; gap: 6px; }
+.linkish { border: 0; background: none; color: var(--accent); font-weight: 600; padding: 0; text-decoration: underline dotted; text-underline-offset: 3px; }
+.timer-since input[type="time"] { padding: 4px 8px; border: 1px solid var(--border-2); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 14px; }
+.timer-actions { display: flex; gap: 8px; grid-row: span 2; }
+@media (max-width: 699px) {
+  .timer { flex-basis: 100%; margin-left: 0; margin-top: 4px; }
+  .timer-start { width: 100%; }
+  .timer-run { width: 100%; }
+  .timer-clock { font-size: 26px; }
+}
+
 .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: var(--r); overflow: hidden; }
 .cal-grid > * { background: var(--surface); min-width: 0; }
 .dow { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); text-align: center; padding: 8px 0 6px; }
@@ -259,6 +276,14 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
       <div class="cal-summary">
         <div class="hero"><span id="monthHours">0</span><span class="unit" id="monthHoursUnit">h</span></div>
         <div class="sub"><span id="monthEarnings">$0</span> · <span id="monthDays">0 days</span></div>
+        <div class="timer" id="timer">
+          <button class="btn primary timer-start" id="timerStart" type="button">Start work</button>
+          <div class="timer-run" id="timerRun" hidden>
+            <div class="timer-clock"><span class="pulse" aria-hidden="true"></span><span id="timerElapsed">0:00:00</span></div>
+            <div class="timer-actions"><button class="btn quiet" id="timerDiscard" type="button">Discard</button><button class="btn primary" id="timerEnd" type="button">End</button></div>
+            <div class="timer-since">Started <button class="linkish" id="timerSinceBtn" type="button" title="Fix the start time">9:05</button><input type="time" id="timerSinceInput" aria-label="Start time" hidden></div>
+          </div>
+        </div>
         <div class="goal" id="goalWrap" hidden><div class="goal-bar"><div class="goal-fill" id="goalFill"></div></div><div id="goalLabel"></div></div>
       </div>
       <div class="cal-grid" id="calGrid" aria-label="Month"></div>
@@ -399,7 +424,8 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
       var parsed = P.parseEntry(raw); // recompute from the raw text so parser fixes apply to old entries
       days[k] = { raw: raw, minutes: parsed ? parsed.minutes : Math.max(0, +v.minutes || 0), note: parsed ? parsed.note : (typeof v.note === 'string' ? v.note : ''), updatedAt: +v.updatedAt || 0 };
     });
-    return { version: 1, settings: s, days: days };
+    var timer = (d.timer && +d.timer.start > 0 && DATE_RE.test(d.timer.day)) ? { start: +d.timer.start, day: d.timer.day } : null;
+    return { version: 1, settings: s, days: days, timer: timer };
   }
   function load() {
     var raw = storeGet(KEY), data = null;
@@ -937,6 +963,66 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
   $('#demoToggle').addEventListener('click', toggleDemo);
   $('#exitDemo').addEventListener('click', toggleDemo);
 
+  /* ---------- start/end timer ---------- */
+  var timerTick = null;
+  function fmtClock(ms) { var t = Math.max(0, Math.floor(ms / 1000)); return Math.floor(t / 3600) + ':' + pad2(Math.floor(t % 3600 / 60)) + ':' + pad2(t % 60); }
+  function fmtTime(ms) { var d = new Date(ms); return d.getHours() + ':' + pad2(d.getMinutes()); }
+  function renderTimer() {
+    var t = state.timer;
+    $('#timerStart').hidden = !!t; $('#timerRun').hidden = !t;
+    $('#timerSinceInput').hidden = true; $('#timerSinceBtn').hidden = false;
+    clearInterval(timerTick); timerTick = null;
+    if (!t) { document.title = 'Hours'; return; }
+    $('#timerSinceBtn').textContent = fmtTime(t.start) + (t.day !== today ? ' on ' + longDate(t.day) : '');
+    var tick = function () { var c = fmtClock(Date.now() - t.start); $('#timerElapsed').textContent = c; document.title = c + ' · Hours'; };
+    tick(); timerTick = setInterval(tick, 1000);
+  }
+  function startTimer() {
+    closeEditor(true);
+    state.timer = { start: Date.now(), day: S.keyOf(new Date()) };
+    save(); renderTimer();
+  }
+  function discardTimer() { state.timer = null; save(); renderTimer(); toast('Timer discarded, nothing logged'); }
+  // End: append the session as a time range to the day the timer started on.
+  function endTimer() {
+    var t = state.timer; if (!t) return;
+    var end = Date.now(), key = t.day, elapsed = end - t.start;
+    if (elapsed >= 86400000) { state.timer = null; save(); renderTimer(); toast('Timer ran over 24 hours. Nothing logged, add the day by hand.'); return; }
+    if (elapsed < 60000) { state.timer = null; save(); renderTimer(); toast('Under a minute, nothing logged'); return; }
+    var range = fmtTime(t.start) + '-' + fmtTime(end);
+    var session = P.parseEntry(range);
+    if (!session) { state.timer = null; save(); renderTimer(); toast("Couldn't read the session times, nothing logged"); return; }
+    var d = state.days[key], raw = range;
+    if (d && d.raw) {
+      var parts = d.raw.split('#'), body = parts[0].trim();
+      raw = (body ? body + ', ' : '') + range + (parts.length > 1 ? ' #' + parts.slice(1).join('#') : '');
+    }
+    var parsed = P.parseEntry(raw);
+    state.timer = null; save(); renderTimer();
+    if (!parsed) { openEditor(key); edInput.value = raw; updateResult(); return; } // can't happen with our own text, but never save what doesn't parse
+    state.days[key] = { raw: raw, minutes: parsed.minutes, note: parsed.note, updatedAt: Date.now() };
+    save();
+    if (key.slice(0, 7) !== viewMonthKey()) { view.y = +key.slice(0, 4); view.m = +key.slice(5, 7); renderCalendar(); } else afterChange(key);
+    toast('Logged ' + S.formatDuration(session.minutes) + ' (' + range + ')' + (key === today ? '' : ' for ' + longDate(key)));
+  }
+  $('#timerStart').addEventListener('click', startTimer);
+  $('#timerEnd').addEventListener('click', endTimer);
+  $('#timerDiscard').addEventListener('click', discardTimer);
+  $('#timerSinceBtn').addEventListener('click', function () {
+    var t = state.timer; if (!t) return;
+    var inp = $('#timerSinceInput'), d = new Date(t.start);
+    inp.value = pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+    this.hidden = true; inp.hidden = false; inp.focus();
+  });
+  $('#timerSinceInput').addEventListener('change', function () {
+    var t = state.timer, m = /^(\d{2}):(\d{2})$/.exec(this.value);
+    if (!t || !m) { renderTimer(); return; }
+    var d = new Date(t.start); d.setHours(+m[1], +m[2], 0, 0);
+    if (d.getTime() > Date.now()) { toast("That's in the future"); renderTimer(); return; }
+    t.start = d.getTime(); save(); renderTimer();
+  });
+  $('#timerSinceInput').addEventListener('blur', function () { if (!this.hidden) renderTimer(); });
+
   /* ---------- demo data ---------- */
   function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
   function demoData() {
@@ -961,10 +1047,12 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
   $('#storageWarn').hidden = storageOk;
   $('#demoBanner').hidden = !DEMO;
   showView('calendar');
+  renderTimer();
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState !== 'visible') return;
     var now = S.keyOf(new Date());
     if (now !== today) { today = now; closeEditor(true); showView(currentView); }
+    renderTimer();
   });
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
     window.addEventListener('load', function () { try { navigator.serviceWorker.register('./sw.js').catch(function () {}); } catch (e) {} });

@@ -14,6 +14,9 @@ var cases = [
   ['6-6pm', 720], ['11-1pm', 120], ['12am-8am', 480], ['12pm-5pm', 300],
   // several ranges
   ['9-1, 2-6', 480], ['9-1; 2-6', 480], ['9-1 + 2-6', 480], ['9-1\n2-6', 480], ['9-12, 1-3, 4-5', 360],
+  // a list can mix durations and ranges (the timer appends ranges to whatever is there)
+  ['4, 13:15-17:32', 497], ['9-12:30, 2h', 330], ['0, 9:05-17:32', 507], ['9:05-17:32', 507], ['22:10-1:30', 200],
+  ['4 # x', 240, 'x'], ['4, 9:05-17:32 # x', 747, 'x'], ['9-5, abc', null],
   // notes
   ['9-5 # client call', 480, 'client call'], ['8 #', 480, ''], ['7.5 # two calls, one site visit', 450, 'two calls, one site visit'],
   ['0 # sick', 0, 'sick'],

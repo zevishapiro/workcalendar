@@ -52,6 +52,15 @@ their next open. Without the bump they keep serving the old cached copy.
 
 Opening it from the home screen gives you a full-screen app that works offline.
 
+## Start and End
+
+The Calendar tab has a "Start work" button. Press it when you begin; press End
+when you stop and the session lands in that day's field as a time range, like
+`9:05-17:32`. Do it twice in a day and you get `9:05-12:30, 13:15-17:32`. The
+start time is saved on the device, so closing the app or locking the phone
+doesn't lose it. Tap the "Started 9:05" text to fix the start time if you
+pressed the button late. Discard throws the session away.
+
 ## What you can type
 
 Durations: `8`, `7.5`, `7,5`, `7:30`, `7h30`, `7h 30m`, `45m`, `0.75`
@@ -59,7 +68,8 @@ Durations: `8`, `7.5`, `7,5`, `7:30`, `7h30`, `7h 30m`, `45m`, `0.75`
 Time ranges: `9-5`, `9 to 5`, `9:30-17:15`, `9am-5pm`, `9.30-5`, `930-515`,
 `21-2` (crosses midnight)
 
-Breaks: list the ranges and they're added up: `9-1, 2-6`
+Breaks: list the ranges and they're added up: `9-1, 2-6`. A list can mix
+ranges and plain hours: `4, 13:15-17:32`
 
 Notes: anything after `#` is a note: `9-5 # client call`
 

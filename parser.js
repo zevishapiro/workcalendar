@@ -93,6 +93,7 @@
         var seg = segs[i].trim();
         if (!seg) continue;
         var mins = parseRange(seg);
+        if (mins === null) mins = parseDuration(seg); // "4, 13:15-17:32": a list can mix durations and ranges
         if (mins === null) return null;
         total += mins; any = true;
       }
