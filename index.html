@@ -319,6 +319,7 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
       <div class="card" id="sendCard">
         <div class="card-title">Send hours</div>
         <div class="send-presets" id="sendPresets" role="group" aria-label="Quick range">
+          <button class="chip" type="button" data-range="invoice" aria-pressed="false" hidden>Since last invoice</button>
           <button class="chip" type="button" data-range="week" aria-pressed="false">This week</button>
           <button class="chip" type="button" data-range="lastweek" aria-pressed="false">Last week</button>
           <button class="chip" type="button" data-range="month" aria-pressed="false">This month</button>
@@ -328,13 +329,17 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
           <label>From <input type="date" id="sendFrom"></label>
           <label>To <input type="date" id="sendTo"></label>
         </div>
+        <div class="send-range">
+          <label>Last invoiced <input type="date" id="lastInvoiced"></label>
+          <button class="btn quiet" type="button" id="invoicedToday">Invoiced today</button>
+        </div>
         <table class="months" id="sendTable"></table>
         <div class="btn-row" style="margin-top:12px">
           <button class="btn primary" type="button" id="sendShare">Share</button>
           <button class="btn" type="button" id="sendCopy">Copy text</button>
           <button class="btn" type="button" id="sendCsv">Spreadsheet</button>
         </div>
-        <p class="hint">Totals for the dates you pick: hours, rate and amount. If your rate changed inside the range, each rate gets its own line.</p>
+        <p class="hint">Totals for the dates you pick: hours, rate and amount. If your rate changed inside the range, each rate gets its own line. Set "Last invoiced" when you send one, and "Since last invoice" picks up from the next day.</p>
       </div>
     </section>
 
@@ -427,9 +432,11 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
   var CURRENCIES = ['USD','EUR','GBP','CAD','AUD','ILS','CHF','JPY','INR','NZD','SEK','NOK','DKK','PLN','ZAR','BRL','MXN'];
 
   function defaultSettings() {
-    return { rates: [{ from: today.slice(0, 4) + '-01-01', rate: 50 }], currency: 'USD', weekStart: 1, hoursFormat: 'decimal', rounding: 0, usualHours: 8, goal: null, theme: 'system', lastExport: null };
+    return { rates: [{ from: today.slice(0, 4) + '-01-01', rate: 50 }], currency: 'USD', weekStart: 1, hoursFormat: 'decimal', rounding: 0, usualHours: 8, goal: null, theme: 'system', lastExport: null, lastInvoiced: null };
   }
   var DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+  // A date input reports half-typed years ("0002") as valid values. Ignore those.
+  function fullDate(v) { return DATE_RE.test(v) && +v.slice(0, 4) >= 1900; }
   // Coerce anything (stored data, an imported file, nothing) into a valid state.
   function normalize(data) {
     var d = (data && typeof data === 'object') ? data : {};
@@ -444,6 +451,7 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
     s.goal = (s.goal && +s.goal.value > 0 && (s.goal.type === 'hours' || s.goal.type === 'money')) ? { type: s.goal.type, value: +s.goal.value } : null;
     s.theme = (s.theme === 'light' || s.theme === 'dark') ? s.theme : 'system';
     s.lastExport = +s.lastExport || null;
+    s.lastInvoiced = DATE_RE.test(s.lastInvoiced) ? s.lastInvoiced : null;
     var days = {};
     Object.keys((d.days && typeof d.days === 'object') ? d.days : {}).forEach(function (k) {
       var v = d.days[k];
@@ -880,6 +888,7 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
   /* ---------- send hours ---------- */
   // A summary for whoever pays you: date range, hours, rate, amount. No per-day detail.
   function sendPreset(kind) {
+    if (kind === 'invoice') { var li = state.settings.lastInvoiced; if (!li) return null; var f = S.addDays(li, 1); return [f, f > today ? f : today]; }
     var ws = state.settings.weekStart, y = +today.slice(0, 4), m = +today.slice(5, 7);
     if (kind === 'week') return [S.startOfWeek(today, ws), today];
     if (kind === 'lastweek') { var a = S.addDays(S.startOfWeek(today, ws), -7); return [a, S.addDays(a, 6)]; }
@@ -888,12 +897,14 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
   }
   var sendRange = null;
   // If one end is moved past the other, the other end follows it.
+  // Half-typed dates are ignored; the field you're typing in is never rewritten.
   function setSendRange(from, to, moved) {
-    if (!DATE_RE.test(from) || !DATE_RE.test(to)) { renderSend(); return; }
+    if (!fullDate(from) || !fullDate(to)) return;
     if (from > to) { if (moved === 'to') from = to; else to = from; }
     sendRange = [from, to];
     renderSend();
   }
+  function setInput(id, v) { var i = $(id); if (i !== document.activeElement && i.value !== v) i.value = v; }
   function sendSummary() { return S.summarize(state.days, sendRange[0], sendRange[1], state.settings); }
   function hoursWord(min) { var h = S.formatHours(min, 'decimal'); return h + (h === '1' ? ' hour' : ' hours'); }
   function sendText(sum) {
@@ -919,10 +930,12 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
   }
   function renderSend() {
     if (!sendRange) sendRange = sendPreset('week');
-    $('#sendFrom').value = sendRange[0]; $('#sendTo').value = sendRange[1];
+    setInput('#sendFrom', sendRange[0]); setInput('#sendTo', sendRange[1]);
+    setInput('#lastInvoiced', state.settings.lastInvoiced || '');
     $$('#sendPresets .chip').forEach(function (b) {
       var p = sendPreset(b.dataset.range);
-      b.setAttribute('aria-pressed', p[0] === sendRange[0] && p[1] === sendRange[1] ? 'true' : 'false');
+      if (b.dataset.range === 'invoice') b.hidden = !p;
+      b.setAttribute('aria-pressed', p && p[0] === sendRange[0] && p[1] === sendRange[1] ? 'true' : 'false');
     });
     var sum = sendSummary(), table = $('#sendTable'); table.innerHTML = '';
     var thead = el('thead'), hr = el('tr');
@@ -936,9 +949,16 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
     table.appendChild(tbody);
     ['#sendShare', '#sendCopy', '#sendCsv'].forEach(function (id) { $(id).disabled = !sum.rows.length; });
   }
-  $$('#sendPresets .chip').forEach(function (b) { b.addEventListener('click', function () { var p = sendPreset(b.dataset.range); setSendRange(p[0], p[1]); }); });
+  $$('#sendPresets .chip').forEach(function (b) { b.addEventListener('click', function () { var p = sendPreset(b.dataset.range); if (p) setSendRange(p[0], p[1]); }); });
   $('#sendFrom').addEventListener('change', function () { setSendRange(this.value, $('#sendTo').value, 'from'); });
   $('#sendTo').addEventListener('change', function () { setSendRange($('#sendFrom').value, this.value, 'to'); });
+  ['#sendFrom', '#sendTo', '#lastInvoiced'].forEach(function (id) { $(id).addEventListener('blur', function () { renderSend(); }); });
+  function setLastInvoiced(v) { state.settings.lastInvoiced = v; save(); renderSend(); }
+  $('#lastInvoiced').addEventListener('change', function () {
+    if (this.value === '') setLastInvoiced(null);
+    else if (fullDate(this.value)) setLastInvoiced(this.value);
+  });
+  $('#invoicedToday').addEventListener('click', function () { setLastInvoiced(today); toast('Marked invoiced today'); });
   function copyText(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       return navigator.clipboard.writeText(text).then(function () { toast('Copied'); }, function () { toast("Couldn't copy"); });
@@ -998,7 +1018,9 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
       var del = el('button', 'icon-btn'); del.type = 'button'; del.setAttribute('aria-label', 'Remove this rate'); del.disabled = rows.length === 1;
       del.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
       row.appendChild(del);
-      from.addEventListener('change', function () { if (DATE_RE.test(from.value)) { r.from = from.value; state.settings.rates = rows; save(); renderRates(); } });
+      // Save as you type, re-sort only when you leave the field, so the picker isn't torn down mid-edit.
+      from.addEventListener('change', function () { if (fullDate(from.value)) { r.from = from.value; state.settings.rates = rows; save(); } });
+      from.addEventListener('blur', function () { renderRates(); });
       rate.addEventListener('input', function () { r.rate = +rate.value || 0; state.settings.rates = rows; save(); });
       del.addEventListener('click', function () { rows.splice(i, 1); state.settings.rates = rows; save(); renderRates(); });
       list.appendChild(row);
@@ -1131,14 +1153,24 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
     inp.value = pad2(d.getHours()) + ':' + pad2(d.getMinutes());
     this.hidden = true; inp.hidden = false; inp.focus();
   });
-  $('#timerSinceInput').addEventListener('change', function () {
-    var t = state.timer, m = /^(\d{2}):(\d{2})$/.exec(this.value);
-    if (!t || !m) { renderTimer(); return; }
-    var d = new Date(t.start); d.setHours(+m[1], +m[2], 0, 0);
-    if (d.getTime() > Date.now()) { toast("That's in the future"); renderTimer(); return; }
-    t.start = d.getTime(); save(); renderTimer();
+  // The time field fires "change" on every digit, so a half-typed time would be saved
+  // and the field closed mid-edit. Apply the value only once, when the field is done.
+  function commitSince() {
+    var inp = $('#timerSinceInput'), t = state.timer;
+    if (inp.hidden) return;
+    var m = /^(\d{2}):(\d{2})$/.exec(inp.value);
+    if (t && m) {
+      var d = new Date(t.start); d.setHours(+m[1], +m[2], 0, 0);
+      if (d.getTime() > Date.now()) toast("That's in the future");
+      else if (d.getTime() !== t.start) { t.start = d.getTime(); save(); }
+    }
+    renderTimer();
+  }
+  $('#timerSinceInput').addEventListener('blur', commitSince);
+  $('#timerSinceInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { e.preventDefault(); this.blur(); }
+    else if (e.key === 'Escape') { this.hidden = true; renderTimer(); }
   });
-  $('#timerSinceInput').addEventListener('blur', function () { if (!this.hidden) renderTimer(); });
 
   /* ---------- demo data ---------- */
   function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; var t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }

@@ -78,6 +78,10 @@ total. Share opens the phone's share sheet so you can text it. Copy text puts
 it on the clipboard. Spreadsheet gives a CSV with From, To, Hours, Rate and
 Amount columns.
 
+"Last invoiced" keeps the date you last sent an invoice. Set it with the date
+picker, or tap "Invoiced today". The "Since last invoice" button then picks
+the range from the day after that date through today.
+
 ## What you can type
 
 Durations: `8`, `7.5`, `7,5`, `7:30`, `7h30`, `7h 30m`, `45m`, `0.75`

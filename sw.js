@@ -1,6 +1,6 @@
 /* Hours service worker: caches the app shell so it opens offline.
    Bump CACHE on every deploy so phones pick up the new files. */
-var CACHE = 'hours-v3';
+var CACHE = 'hours-v4';
 var SHELL = ['./', './index.html', './parser.js', './stats.js', './manifest.webmanifest',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-maskable-192.png'];
 
