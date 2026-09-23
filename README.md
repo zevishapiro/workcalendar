@@ -61,6 +61,23 @@ start time is saved on the device, so closing the app or locking the phone
 doesn't lose it. Tap the "Started 9:05" text to fix the start time if you
 pressed the button late. Discard throws the session away.
 
+## Send hours
+
+The Stats tab has a "Send hours" card for telling whoever pays you what you
+worked. Pick a range with This week, Last week, This month or Last month, or
+set From and To yourself. It shows the date range, total hours, your rate and
+the amount, with no day-by-day detail:
+
+```
+Hours for Sep 6 – 10, 2026
+36 hours at $50/hour = $1,800
+```
+
+If your rate changed inside the range, each rate gets its own line plus a
+total. Share opens the phone's share sheet so you can text it. Copy text puts
+it on the clipboard. Spreadsheet gives a CSV with From, To, Hours, Rate and
+Amount columns.
+
 ## What you can type
 
 Durations: `8`, `7.5`, `7,5`, `7:30`, `7h30`, `7h 30m`, `45m`, `0.75`

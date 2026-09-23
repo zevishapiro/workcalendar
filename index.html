@@ -217,6 +217,14 @@ table.months tr.dim td { color: var(--muted); }
 table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-2); }
 .fine { font-size: 12px; color: var(--muted); margin: 12px 2px 0; }
 
+/* send hours */
+.send-presets { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+.send-presets .chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.send-range { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.send-range label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); }
+.send-range input { padding: 7px 10px; border: 1px solid var(--border-2); border-radius: 8px; background: var(--bg); color: var(--text); min-width: 0; }
+@media (max-width: 699px) { .send-range input { min-height: 44px; } }
+
 /* settings */
 .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
 .row:first-of-type { border-top: 0; }
@@ -308,6 +316,26 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
         <table class="months" id="monthTable"></table>
       </div>
       <p class="fine" id="statsNote"></p>
+      <div class="card" id="sendCard">
+        <div class="card-title">Send hours</div>
+        <div class="send-presets" id="sendPresets" role="group" aria-label="Quick range">
+          <button class="chip" type="button" data-range="week" aria-pressed="false">This week</button>
+          <button class="chip" type="button" data-range="lastweek" aria-pressed="false">Last week</button>
+          <button class="chip" type="button" data-range="month" aria-pressed="false">This month</button>
+          <button class="chip" type="button" data-range="lastmonth" aria-pressed="false">Last month</button>
+        </div>
+        <div class="send-range">
+          <label>From <input type="date" id="sendFrom"></label>
+          <label>To <input type="date" id="sendTo"></label>
+        </div>
+        <table class="months" id="sendTable"></table>
+        <div class="btn-row" style="margin-top:12px">
+          <button class="btn primary" type="button" id="sendShare">Share</button>
+          <button class="btn" type="button" id="sendCopy">Copy text</button>
+          <button class="btn" type="button" id="sendCsv">Spreadsheet</button>
+        </div>
+        <p class="hint">Totals for the dates you pick: hours, rate and amount. If your rate changed inside the range, each rate gets its own line.</p>
+      </div>
     </section>
 
     <section id="view-settings" class="view" hidden>
@@ -491,7 +519,7 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
       $('#view-' + v).hidden = v !== name;
       $$('.tab[data-view="' + v + '"]').forEach(function (b) { b.setAttribute('aria-selected', v === name ? 'true' : 'false'); });
     });
-    if (name === 'calendar') renderCalendar(); else if (name === 'stats') renderStats(); else renderSettings();
+    if (name === 'calendar') renderCalendar(); else if (name === 'stats') { renderStats(); renderSend(); } else renderSettings();
     window.scrollTo(0, 0);
   }
   $$('.tab').forEach(function (b) { b.addEventListener('click', function () { showView(b.dataset.view); }); });
@@ -848,6 +876,95 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
     if (!rows.length) { var tr3 = el('tr', 'dim'), c3 = el('td'); c3.colSpan = 4; c3.textContent = 'Nothing logged yet.'; tr3.appendChild(c3); tbody.appendChild(tr3); }
     table.appendChild(tbody);
   }
+
+  /* ---------- send hours ---------- */
+  // A summary for whoever pays you: date range, hours, rate, amount. No per-day detail.
+  function sendPreset(kind) {
+    var ws = state.settings.weekStart, y = +today.slice(0, 4), m = +today.slice(5, 7);
+    if (kind === 'week') return [S.startOfWeek(today, ws), today];
+    if (kind === 'lastweek') { var a = S.addDays(S.startOfWeek(today, ws), -7); return [a, S.addDays(a, 6)]; }
+    if (kind === 'month') return [S.monthStart(y, m), today];
+    var lm = S.addMonths(y, m, -1); return [S.monthStart(lm.y, lm.m), S.monthEnd(lm.y, lm.m)];
+  }
+  var sendRange = null;
+  // If one end is moved past the other, the other end follows it.
+  function setSendRange(from, to, moved) {
+    if (!DATE_RE.test(from) || !DATE_RE.test(to)) { renderSend(); return; }
+    if (from > to) { if (moved === 'to') from = to; else to = from; }
+    sendRange = [from, to];
+    renderSend();
+  }
+  function sendSummary() { return S.summarize(state.days, sendRange[0], sendRange[1], state.settings); }
+  function hoursWord(min) { var h = S.formatHours(min, 'decimal'); return h + (h === '1' ? ' hour' : ' hours'); }
+  function sendText(sum) {
+    var lines = ['Hours for ' + S.rangeLabel(sum.start, sum.end)];
+    if (!sum.rows.length) { lines.push('No hours logged.'); return lines.join('\n'); }
+    if (sum.rows.length === 1) {
+      var r = sum.rows[0];
+      lines.push(hoursWord(r.minutes) + ' at ' + fmtMoney(r.rate) + '/hour = ' + fmtMoney(r.amount));
+    } else {
+      sum.rows.forEach(function (r) {
+        lines.push(S.rangeLabel(r.start, r.end) + ': ' + hoursWord(r.minutes) + ' at ' + fmtMoney(r.rate) + '/hour = ' + fmtMoney(r.amount));
+      });
+      lines.push('Total: ' + hoursWord(sum.minutes) + ' = ' + fmtMoney(sum.amount));
+    }
+    return lines.join('\n');
+  }
+  function sendCsv(sum) {
+    var c = state.settings.currency;
+    var lines = ['From,To,Hours,Rate per hour (' + c + '),Amount (' + c + ')'];
+    sum.rows.forEach(function (r) { lines.push([r.start, r.end, (r.minutes / 60).toFixed(2), r.rate.toFixed(2), r.amount.toFixed(2)].join(',')); });
+    if (sum.rows.length !== 1) lines.push(['Total', '', (sum.minutes / 60).toFixed(2), '', sum.amount.toFixed(2)].join(','));
+    return lines.join('\n') + '\n';
+  }
+  function renderSend() {
+    if (!sendRange) sendRange = sendPreset('week');
+    $('#sendFrom').value = sendRange[0]; $('#sendTo').value = sendRange[1];
+    $$('#sendPresets .chip').forEach(function (b) {
+      var p = sendPreset(b.dataset.range);
+      b.setAttribute('aria-pressed', p[0] === sendRange[0] && p[1] === sendRange[1] ? 'true' : 'false');
+    });
+    var sum = sendSummary(), table = $('#sendTable'); table.innerHTML = '';
+    var thead = el('thead'), hr = el('tr');
+    ['Dates', 'Hours', 'Rate', 'Amount'].forEach(function (h) { var th = el('th'); th.textContent = h; hr.appendChild(th); });
+    thead.appendChild(hr); table.appendChild(thead);
+    var tbody = el('tbody');
+    function addRow(cells, cls) { var tr = el('tr', cls); cells.forEach(function (v) { var td = el('td'); td.textContent = v; tr.appendChild(td); }); tbody.appendChild(tr); }
+    sum.rows.forEach(function (r) { addRow([S.rangeLabel(r.start, r.end), S.formatHours(r.minutes, 'decimal'), fmtMoney(r.rate) + '/h', fmtMoney(r.amount)]); });
+    if (sum.rows.length > 1) addRow(['Total', S.formatHours(sum.minutes, 'decimal'), '', fmtMoney(sum.amount)], 'total');
+    if (!sum.rows.length) { var tr = el('tr', 'dim'), td = el('td'); td.colSpan = 4; td.textContent = 'No hours logged between these dates.'; tr.appendChild(td); tbody.appendChild(tr); }
+    table.appendChild(tbody);
+    ['#sendShare', '#sendCopy', '#sendCsv'].forEach(function (id) { $(id).disabled = !sum.rows.length; });
+  }
+  $$('#sendPresets .chip').forEach(function (b) { b.addEventListener('click', function () { var p = sendPreset(b.dataset.range); setSendRange(p[0], p[1]); }); });
+  $('#sendFrom').addEventListener('change', function () { setSendRange(this.value, $('#sendTo').value, 'from'); });
+  $('#sendTo').addEventListener('change', function () { setSendRange($('#sendFrom').value, this.value, 'to'); });
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).then(function () { toast('Copied'); }, function () { toast("Couldn't copy"); });
+    }
+    var ta = el('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); toast('Copied'); } catch (e) { toast("Couldn't copy"); }
+    ta.remove();
+  }
+  $('#sendShare').hidden = !navigator.share;
+  $('#sendCopy').addEventListener('click', function () { copyText(sendText(sendSummary())); });
+  $('#sendShare').addEventListener('click', function () {
+    var text = sendText(sendSummary());
+    if (navigator.share) navigator.share({ text: text }).catch(function () {});
+    else copyText(text);
+  });
+  $('#sendCsv').addEventListener('click', function () {
+    var sum = sendSummary(), name = 'hours-' + sum.start + '-to-' + sum.end + '.csv', body = sendCsv(sum);
+    // On phones, hand the file to the share sheet (save to Files, text, email). Elsewhere, download it.
+    var file = null;
+    try { file = new File([body], name, { type: 'text/csv' }); } catch (e) {}
+    if (file && navigator.canShare && navigator.canShare({ files: [file] }) && /Mobi|Android|iPhone|iPad/.test(navigator.userAgent)) {
+      navigator.share({ files: [file] }).catch(function () {});
+    } else {
+      download(name, body, 'text/csv');
+    }
+  });
 
   /* ---------- settings ---------- */
   var cur = $('#setCurrency');

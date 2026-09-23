@@ -78,5 +78,26 @@ eq('duration zero', S.formatDuration(0), '0h');
 eq('pct change', S.pctChange(120, 100), 20);
 eq('pct change from zero', S.pctChange(120, 0), null);
 
+// Summary for sending hours: one row per rate in the range.
+var wk = { '2026-09-07': { minutes: 420 }, '2026-09-08': { minutes: 240 }, '2026-09-09': { minutes: 0 }, '2026-09-10': { minutes: 480, deleted: true }, '2026-09-11': { minutes: 450 }, '2026-09-14': { minutes: 480 } };
+var one = S.summarize(wk, '2026-09-06', '2026-09-11', settings);
+eq('summary one rate: rows', one.rows.length, 1);
+eq('summary one rate: row', [one.rows[0].start, one.rows[0].end, one.rows[0].minutes, one.rows[0].rate, one.rows[0].amount], ['2026-09-06', '2026-09-11', 1110, 50, 925]);
+eq('summary skips day off, deleted and out of range', one.daysWorked, 3);
+eq('summary total', [one.minutes, one.amount], [1110, 925]);
+var split = S.summarize(days, '2026-09-15', '2026-09-30', settings);
+eq('summary splits at a raise', split.rows.map(function (r) { return [r.start, r.end, r.minutes, r.rate, r.amount]; }),
+  [['2026-09-15', '2026-09-20', 480, 50, 400], ['2026-09-21', '2026-09-30', 720, 60, 720]]);
+eq('summary split total', [split.minutes, split.amount], [1200, 1120]);
+eq('summary drops a rate with no hours', S.summarize(days, '2026-09-21', '2026-09-30', { rates: [{ from: '2026-01-01', rate: 50 }, { from: '2026-09-21', rate: 60 }], rounding: 0 }).rows.length, 1);
+eq('summary merges equal consecutive rates', S.summarize(days, '2026-09-15', '2026-09-30', { rates: [{ from: '2026-01-01', rate: 50 }, { from: '2026-09-21', rate: 50 }], rounding: 0 }).rows.length, 1);
+eq('summary uses rounding', S.summarize({ '2026-09-07': { minutes: 467 } }, '2026-09-07', '2026-09-07', { rates: rates, rounding: 15 }).minutes, 465);
+eq('summary rounds amount to cents', S.summarize({ '2026-09-07': { minutes: 440 } }, '2026-09-07', '2026-09-07', { rates: [{ from: '2026-01-01', rate: 25 }], rounding: 0 }).amount, 183.33);
+eq('summary empty range', S.summarize(wk, '2026-10-01', '2026-10-07', settings).rows.length, 0);
+eq('range label same month', S.rangeLabel('2026-09-06', '2026-09-10'), 'Sep 6 – 10, 2026');
+eq('range label across months', S.rangeLabel('2026-09-28', '2026-10-03'), 'Sep 28 – Oct 3, 2026');
+eq('range label across years', S.rangeLabel('2025-12-29', '2026-01-02'), 'Dec 29, 2025 – Jan 2, 2026');
+eq('range label one day', S.rangeLabel('2026-09-06', '2026-09-06'), 'Sep 6, 2026');
+
 console.log('\n' + (n - failed) + '/' + n + ' passed');
 process.exit(failed ? 1 : 0);

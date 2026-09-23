@@ -104,6 +104,51 @@
     return r;
   }
 
+  // One line per rate in effect over [start, end] (inclusive): the dates that
+  // rate covers inside the range, hours, rate and amount. Consecutive rate rows
+  // with the same rate count as one. Rows with no hours are left out.
+  // Amounts are rounded to cents per row, so the total equals the sum of rows.
+  function summarize(days, start, end, settings) {
+    var rows = sortedRates(settings.rates), segs = [];
+    function push(from, rate) {
+      var last = segs[segs.length - 1];
+      if (last && last.rate === rate) return;
+      if (last) last.end = addDays(from, -1);
+      segs.push({ start: from, end: end, rate: rate, minutes: 0, daysWorked: 0, amount: 0 });
+    }
+    push(start, rateFor(rows, start));
+    rows.forEach(function (r) { if (r.from > start && r.from <= end) push(r.from, +r.rate || 0); });
+    Object.keys(days || {}).sort().forEach(function (k) {
+      var d = days[k];
+      if (!d || d.deleted || k < start || k > end) return;
+      var m = roundMinutes(d.minutes || 0, settings.rounding);
+      if (!m) return;
+      for (var i = segs.length - 1; i >= 0; i--) {
+        if (segs[i].start <= k) { segs[i].minutes += m; segs[i].daysWorked++; break; }
+      }
+    });
+    var out = { start: start, end: end, minutes: 0, amount: 0, daysWorked: 0, rows: [] };
+    segs.forEach(function (sg) {
+      if (!sg.minutes) return;
+      sg.amount = Math.round(sg.minutes / 60 * sg.rate * 100) / 100;
+      out.minutes += sg.minutes; out.daysWorked += sg.daysWorked; out.amount += sg.amount;
+      out.rows.push(sg);
+    });
+    out.amount = Math.round(out.amount * 100) / 100;
+    return out;
+  }
+
+  var MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  // "Sep 6, 2026", "Sep 6 – 10, 2026", "Sep 28 – Oct 3, 2026", "Dec 29, 2025 – Jan 2, 2026"
+  function rangeLabel(start, end) {
+    var a = dateOf(start), b = dateOf(end);
+    var ma = MON[a.getMonth()], mb = MON[b.getMonth()];
+    if (start === end) return ma + ' ' + a.getDate() + ', ' + a.getFullYear();
+    if (a.getFullYear() !== b.getFullYear()) return ma + ' ' + a.getDate() + ', ' + a.getFullYear() + ' – ' + mb + ' ' + b.getDate() + ', ' + b.getFullYear();
+    if (a.getMonth() !== b.getMonth()) return ma + ' ' + a.getDate() + ' – ' + mb + ' ' + b.getDate() + ', ' + b.getFullYear();
+    return ma + ' ' + a.getDate() + ' – ' + b.getDate() + ', ' + b.getFullYear();
+  }
+
   function pctChange(cur, prev) {
     if (!prev) return null;
     return (cur - prev) / prev * 100;
@@ -129,6 +174,7 @@
     monthStart: monthStart, monthEnd: monthEnd, addMonths: addMonths, startOfWeek: startOfWeek,
     sortedRates: sortedRates, rateFor: rateFor, roundMinutes: roundMinutes, dayEarnings: dayEarnings,
     aggregate: aggregate, periodRange: periodRange, pctChange: pctChange,
+    summarize: summarize, rangeLabel: rangeLabel,
     formatHours: formatHours, formatDuration: formatDuration
   };
 });
