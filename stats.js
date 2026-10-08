@@ -138,6 +138,23 @@
     return out;
   }
 
+  // Invoices are { from, to, ... } date ranges (from may be null: "everything up to").
+  // Which invoices does [start, end] overlap, and on which dates? Newest first.
+  function invoiceOverlaps(invoices, start, end) {
+    var out = [];
+    (invoices || []).forEach(function (inv) {
+      var a = inv.from && inv.from > start ? inv.from : start, b = inv.to < end ? inv.to : end;
+      if (a <= b) out.push({ invoice: inv, from: a, to: b });
+    });
+    return out.sort(function (x, y) { return x.invoice.to < y.invoice.to ? 1 : x.invoice.to > y.invoice.to ? -1 : 0; });
+  }
+  // The invoice that reaches furthest forward, or null.
+  function latestInvoice(invoices) {
+    var best = null;
+    (invoices || []).forEach(function (inv) { if (!best || inv.to > best.to || (inv.to === best.to && inv.sentOn > best.sentOn)) best = inv; });
+    return best;
+  }
+
   var MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   // "Sep 6, 2026", "Sep 6 – 10, 2026", "Sep 28 – Oct 3, 2026", "Dec 29, 2025 – Jan 2, 2026"
   function rangeLabel(start, end) {
@@ -174,7 +191,7 @@
     monthStart: monthStart, monthEnd: monthEnd, addMonths: addMonths, startOfWeek: startOfWeek,
     sortedRates: sortedRates, rateFor: rateFor, roundMinutes: roundMinutes, dayEarnings: dayEarnings,
     aggregate: aggregate, periodRange: periodRange, pctChange: pctChange,
-    summarize: summarize, rangeLabel: rangeLabel,
+    summarize: summarize, rangeLabel: rangeLabel, invoiceOverlaps: invoiceOverlaps, latestInvoice: latestInvoice,
     formatHours: formatHours, formatDuration: formatDuration
   };
 });

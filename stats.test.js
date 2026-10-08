@@ -99,5 +99,14 @@ eq('range label across months', S.rangeLabel('2026-09-28', '2026-10-03'), 'Sep 2
 eq('range label across years', S.rangeLabel('2025-12-29', '2026-01-02'), 'Dec 29, 2025 – Jan 2, 2026');
 eq('range label one day', S.rangeLabel('2026-09-06', '2026-09-06'), 'Sep 6, 2026');
 
+// Invoices: overlap with a chosen range, and the latest one.
+var invs = [{ id: 'a', from: '2026-09-06', to: '2026-09-10', sentOn: '2026-09-11' }, { id: 'b', from: '2026-09-13', to: '2026-09-17', sentOn: '2026-09-18' }, { id: 'c', from: null, to: '2026-08-31', sentOn: '2026-09-01' }];
+eq('no overlap after last invoice', S.invoiceOverlaps(invs, '2026-09-18', '2026-09-24').length, 0);
+eq('overlap clipped to the range', S.invoiceOverlaps(invs, '2026-09-09', '2026-09-14').map(function (o) { return [o.invoice.id, o.from, o.to]; }), [['b', '2026-09-13', '2026-09-14'], ['a', '2026-09-09', '2026-09-10']]);
+eq('touching end date counts', S.invoiceOverlaps(invs, '2026-09-17', '2026-09-20').map(function (o) { return o.invoice.id; }), ['b']);
+eq('open-start invoice overlaps anything before its end', S.invoiceOverlaps(invs, '2026-01-01', '2026-01-05').map(function (o) { return [o.invoice.id, o.from, o.to]; }), [['c', '2026-01-01', '2026-01-05']]);
+eq('latest invoice', S.latestInvoice(invs).id, 'b');
+eq('latest invoice of none', S.latestInvoice([]), null);
+
 console.log('\n' + (n - failed) + '/' + n + ' passed');
 process.exit(failed ? 1 : 0);

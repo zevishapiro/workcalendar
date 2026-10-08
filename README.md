@@ -78,9 +78,13 @@ total. Share opens the phone's share sheet so you can text it. Copy text puts
 it on the clipboard. Spreadsheet gives a CSV with From, To, Hours, Rate and
 Amount columns.
 
-"Last invoiced" keeps the date you last sent an invoice. Set it with the date
-picker, or tap "Invoiced today". The "Since last invoice" button then picks
-the range from the day after that date through today.
+After you send an invoice, tap "Save as invoiced" (set "Sent on" if it went
+out another day). The dates, hours and amount go on the "Invoices sent" list,
+and the top of the card shows your last invoice. If the dates you pick overlap
+an invoice you already saved, a warning names the overlapping days, and "Skip
+invoiced days" moves the start past them. "Since last invoice" picks the range
+from the day after your last invoice through today. Removing an invoice from
+the list doesn't touch your hours.
 
 ## What you can type
 
