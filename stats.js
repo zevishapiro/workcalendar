@@ -138,15 +138,11 @@
     return out;
   }
 
-  // Invoices are { from, to, ... } date ranges (from may be null: "everything up to").
-  // Which invoices does [start, end] overlap, and on which dates? Newest first.
-  function invoiceOverlaps(invoices, start, end) {
-    var out = [];
-    (invoices || []).forEach(function (inv) {
-      var a = inv.from && inv.from > start ? inv.from : start, b = inv.to < end ? inv.to : end;
-      if (a <= b) out.push({ invoice: inv, from: a, to: b });
-    });
-    return out.sort(function (x, y) { return x.invoice.to < y.invoice.to ? 1 : x.invoice.to > y.invoice.to ? -1 : 0; });
+  // Everything up to and including lastInvoiced counts as billed. Which part of
+  // [start, end] is that? Returns [from, to] or null.
+  function invoicedPart(lastInvoiced, start, end) {
+    if (!lastInvoiced || start > lastInvoiced) return null;
+    return [start, end < lastInvoiced ? end : lastInvoiced];
   }
   // The invoice that reaches furthest forward, or null.
   function latestInvoice(invoices) {
@@ -191,7 +187,7 @@
     monthStart: monthStart, monthEnd: monthEnd, addMonths: addMonths, startOfWeek: startOfWeek,
     sortedRates: sortedRates, rateFor: rateFor, roundMinutes: roundMinutes, dayEarnings: dayEarnings,
     aggregate: aggregate, periodRange: periodRange, pctChange: pctChange,
-    summarize: summarize, rangeLabel: rangeLabel, invoiceOverlaps: invoiceOverlaps, latestInvoice: latestInvoice,
+    summarize: summarize, rangeLabel: rangeLabel, invoicedPart: invoicedPart, latestInvoice: latestInvoice,
     formatHours: formatHours, formatDuration: formatDuration
   };
 });

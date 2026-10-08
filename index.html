@@ -225,9 +225,9 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
 .last-invoice { font-size: 13px; color: var(--text-2); margin: -2px 0 10px; }
 .last-invoice b { color: var(--text); font-weight: 600; }
 #overlapWarn { margin: 0 0 10px; }
-.inv-head { font-size: 13px; font-weight: 600; color: var(--text-2); margin: 18px 0 4px; padding-top: 14px; border-top: 1px solid var(--border); }
-table.months td.inv-x { width: 1%; padding: 0 0 0 6px; }
-table.months td.inv-x .icon-btn { width: 32px; height: 32px; }
+.earlier { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--text-2); margin: -4px 0 12px; }
+.earlier .chip { display: inline-flex; align-items: center; gap: 4px; padding-right: 6px; }
+.earlier .chip svg { width: 14px; height: 14px; }
 .send-range input { padding: 7px 10px; border: 1px solid var(--border-2); border-radius: 8px; background: var(--bg); color: var(--text); min-width: 0; }
 @media (max-width: 699px) { .send-range input { min-height: 44px; } }
 
@@ -324,7 +324,11 @@ table.months td.inv-x .icon-btn { width: 32px; height: 32px; }
       <p class="fine" id="statsNote"></p>
       <div class="card" id="sendCard">
         <div class="card-title">Send hours</div>
+        <div class="send-range">
+          <label>Last invoiced <input type="date" id="lastInvoiced"></label>
+        </div>
         <p class="last-invoice" id="lastInvoiceLine"></p>
+        <div class="earlier" id="earlierInvoices" hidden></div>
         <div class="send-presets" id="sendPresets" role="group" aria-label="Quick range">
           <button class="chip" type="button" data-range="invoice" aria-pressed="false" hidden>Since last invoice</button>
           <button class="chip" type="button" data-range="week" aria-pressed="false">This week</button>
@@ -343,13 +347,7 @@ table.months td.inv-x .icon-btn { width: 32px; height: 32px; }
           <button class="btn" type="button" id="sendCopy">Copy text</button>
           <button class="btn" type="button" id="sendCsv">Spreadsheet</button>
         </div>
-        <div class="send-range" style="margin-top:4px">
-          <label>Sent on <input type="date" id="invoiceSentOn"></label>
-          <button class="btn" type="button" id="markInvoiced">Save as invoiced</button>
-        </div>
-        <p class="hint">After you send these hours, tap "Save as invoiced". The dates go on the list below, and you get a warning if you pick days you've already invoiced. If your rate changed inside the range, each rate gets its own line.</p>
-        <div class="inv-head">Invoices sent</div>
-        <table class="months" id="invoiceTable"></table>
+        <p class="hint">Copy the numbers, send your invoice however you like, then set "Last invoiced" to that day. Changing it to a later date keeps the old one under "Earlier". If your rate changed inside the range, each rate gets its own line.</p>
       </div>
     </section>
 
@@ -948,22 +946,17 @@ table.months td.inv-x .icon-btn { width: 32px; height: 32px; }
     return lines.join('\n') + '\n';
   }
   function renderSend() {
-    if (!sendRange) sendRange = sendPreset('week');
+    if (!sendRange) sendRange = sendPreset('invoice') || sendPreset('week');
     setInput('#sendFrom', sendRange[0]); setInput('#sendTo', sendRange[1]);
-    if (!sentOn) sentOn = today;
-    setInput('#invoiceSentOn', sentOn);
     var last = S.latestInvoice(state.invoices);
+    setInput('#lastInvoiced', last ? last.to : '');
     $('#lastInvoiceLine').innerHTML = '';
-    if (last) {
-      $('#lastInvoiceLine').append('Last invoice: ', bold(invoiceDates(last)), ', sent ', bold(shortDate(last.sentOn)) , '.');
-    } else {
-      $('#lastInvoiceLine').textContent = 'No invoices saved yet.';
-    }
-    var overlaps = S.invoiceOverlaps(state.invoices, sendRange[0], sendRange[1]);
-    $('#overlapWarn').hidden = !overlaps.length;
-    $('#overlapText').textContent = overlaps.length ? 'Already invoiced: ' + overlaps.map(function (o) {
-      return S.rangeLabel(o.from, o.to) + ' (sent ' + shortDate(o.invoice.sentOn) + ')';
-    }).join(', ') + '.' : '';
+    if (last) $('#lastInvoiceLine').append('Hours after ', bold(shortDate(last.to)), ' have not been invoiced yet.');
+    else $('#lastInvoiceLine').textContent = 'Set the date you last invoiced. Hours after it count as not yet invoiced.';
+    renderEarlier(last);
+    var part = S.invoicedPart(last && last.to, sendRange[0], sendRange[1]);
+    $('#overlapWarn').hidden = !part;
+    $('#overlapText').textContent = part ? (part[0] === part[1] ? shortDate(part[0]) + ' is' : S.rangeLabel(part[0], part[1]) + ' are') + ' on or before your last invoice (' + shortDate(last.to) + '), so ' + (part[0] === part[1] ? 'it was' : 'they were') + ' probably billed already.' : '';
     $$('#sendPresets .chip').forEach(function (b) {
       var p = sendPreset(b.dataset.range);
       if (b.dataset.range === 'invoice') b.hidden = !p;
@@ -979,53 +972,62 @@ table.months td.inv-x .icon-btn { width: 32px; height: 32px; }
     if (sum.rows.length > 1) addRow(['Total', S.formatHours(sum.minutes, 'decimal'), '', fmtMoney(sum.amount)], 'total');
     if (!sum.rows.length) { var tr = el('tr', 'dim'), td = el('td'); td.colSpan = 4; td.textContent = 'No hours logged between these dates.'; tr.appendChild(td); tbody.appendChild(tr); }
     table.appendChild(tbody);
-    ['#sendShare', '#sendCopy', '#sendCsv', '#markInvoiced'].forEach(function (id) { $(id).disabled = !sum.rows.length; });
-    renderInvoices();
+    ['#sendShare', '#sendCopy', '#sendCsv'].forEach(function (id) { $(id).disabled = !sum.rows.length; });
   }
   $$('#sendPresets .chip').forEach(function (b) { b.addEventListener('click', function () { var p = sendPreset(b.dataset.range); if (p) setSendRange(p[0], p[1]); }); });
   $('#sendFrom').addEventListener('change', function () { setSendRange(this.value, $('#sendTo').value, 'from'); });
   $('#sendTo').addEventListener('change', function () { setSendRange($('#sendFrom').value, this.value, 'to'); });
-  ['#sendFrom', '#sendTo', '#invoiceSentOn'].forEach(function (id) { $(id).addEventListener('blur', function () { renderSend(); }); });
+  ['#sendFrom', '#sendTo'].forEach(function (id) { $(id).addEventListener('blur', function () { renderSend(); }); });
 
-  /* invoices: what you've already billed, so the same days don't get billed twice */
-  var sentOn = null;
+  /* last invoiced: you invoice outside the app, then tell it the date */
   function bold(t) { var b = el('b'); b.textContent = t; return b; }
   function shortDate(key) { var d = S.dateOf(key); return MON[d.getMonth()] + ' ' + d.getDate() + (key.slice(0, 4) !== today.slice(0, 4) ? ', ' + d.getFullYear() : ''); }
-  function invoiceDates(inv) { return inv.from ? S.rangeLabel(inv.from, inv.to) : 'everything up to ' + S.rangeLabel(inv.to, inv.to); }
-  function renderInvoices() {
-    var table = $('#invoiceTable'); table.innerHTML = '';
-    var list = state.invoices.slice().sort(function (a, b) { return a.to < b.to ? 1 : a.to > b.to ? -1 : (b.createdAt - a.createdAt); });
-    var thead = el('thead'), hr = el('tr');
-    ['Dates', 'Hours', 'Amount', 'Sent', ''].forEach(function (h) { var th = el('th'); th.textContent = h; hr.appendChild(th); });
-    thead.appendChild(hr); table.appendChild(thead);
-    var tbody = el('tbody');
-    list.forEach(function (inv) {
-      var tr = el('tr');
-      [invoiceDates(inv), inv.minutes == null ? '–' : S.formatHours(inv.minutes, 'decimal'), inv.amount == null ? '–' : fmtMoney(inv.amount), shortDate(inv.sentOn)].forEach(function (v) { var td = el('td'); td.textContent = v; tr.appendChild(td); });
-      var x = el('td', 'inv-x'), del = el('button', 'icon-btn'); del.type = 'button'; del.setAttribute('aria-label', 'Remove this invoice from the list');
-      del.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
-      del.addEventListener('click', function () {
-        if (!confirm('Remove the invoice for ' + invoiceDates(inv) + ' from your list? Your hours are not affected.')) return;
-        state.invoices = state.invoices.filter(function (v) { return v !== inv; }); save(); renderSend();
+  var X_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+  function renderEarlier(last) {
+    var box = $('#earlierInvoices'); box.innerHTML = '';
+    var seen = {}, list = state.invoices.filter(function (v) {
+      if (v === last || (last && v.to === last.to) || seen[v.to]) return false;
+      return (seen[v.to] = true);
+    }).sort(function (a, b) { return a.to < b.to ? 1 : -1; });
+    box.hidden = !list.length;
+    if (!list.length) return;
+    box.append('Earlier:');
+    list.forEach(function (v) {
+      var c = el('button', 'chip'); c.type = 'button'; c.title = 'Remove ' + shortDate(v.to);
+      c.setAttribute('aria-label', 'Remove earlier invoice date ' + shortDate(v.to));
+      c.append(shortDate(v.to)); c.insertAdjacentHTML('beforeend', X_ICON);
+      c.addEventListener('click', function () {
+        if (!confirm('Remove ' + shortDate(v.to) + ' from your earlier invoice dates?')) return;
+        state.invoices = state.invoices.filter(function (w) { return w.to !== v.to || w === last; }); save(); renderSend();
       });
-      x.appendChild(del); tr.appendChild(x); tbody.appendChild(tr);
+      box.appendChild(c);
     });
-    if (!list.length) { var tr = el('tr', 'dim'), td = el('td'); td.colSpan = 5; td.textContent = 'None yet.'; tr.appendChild(td); tbody.appendChild(tr); }
-    table.appendChild(tbody);
   }
-  $('#invoiceSentOn').addEventListener('change', function () { if (fullDate(this.value)) sentOn = this.value; });
-  $('#markInvoiced').addEventListener('click', function () {
-    var sum = sendSummary(); if (!sum.rows.length) return;
-    var overlaps = S.invoiceOverlaps(state.invoices, sum.start, sum.end);
-    if (overlaps.length && !confirm('Some of these days are already on an invoice (' + overlaps.map(function (o) { return S.rangeLabel(o.from, o.to); }).join(', ') + '). Save anyway?')) return;
-    state.invoices.push({ id: newId(), from: sum.start, to: sum.end, sentOn: sentOn || today, minutes: sum.minutes, amount: sum.amount, createdAt: Date.now() });
-    var sent = sentOn || today; sentOn = null; save(); renderSend();
-    toast('Saved: ' + S.rangeLabel(sum.start, sum.end) + ', sent ' + shortDate(sent));
-  });
+  // Applied when you leave the field (or press Enter), so half-typed dates never count.
+  // A later date is a new invoice: the old date moves to "Earlier". An earlier date
+  // corrects the current one. Clearing it drops the current one.
+  function commitLastInvoiced() {
+    var v = $('#lastInvoiced').value, last = S.latestInvoice(state.invoices);
+    if (v === '') {
+      if (last) { state.invoices = state.invoices.filter(function (w) { return w !== last; }); save(); toast('Last invoice date cleared'); sendRange = null; }
+    } else if (fullDate(v) && !(last && v === last.to)) {
+      if (!last || v > last.to) {
+        state.invoices.push({ id: newId(), from: null, to: v, sentOn: v, minutes: null, amount: null, createdAt: Date.now() });
+        toast('Last invoiced ' + shortDate(v) + (last ? '. ' + shortDate(last.to) + ' moved to Earlier.' : ''));
+      } else {
+        last.to = v; last.sentOn = v; last.from = null;
+        toast('Last invoice date changed to ' + shortDate(v));
+      }
+      save(); sendRange = null; // show the hours since the new date
+    }
+    renderSend();
+  }
+  $('#lastInvoiced').addEventListener('blur', commitLastInvoiced);
+  $('#lastInvoiced').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); this.blur(); } });
   $('#overlapSkip').addEventListener('click', function () {
-    var overlaps = S.invoiceOverlaps(state.invoices, sendRange[0], sendRange[1]); if (!overlaps.length) return;
-    var after = S.addDays(overlaps.reduce(function (m, o) { return o.invoice.to > m ? o.invoice.to : m; }, sendRange[0]), 1);
-    setSendRange(after, sendRange[1] < after ? after : sendRange[1]);
+    var last = S.latestInvoice(state.invoices); if (!last) return;
+    var after = S.addDays(last.to, 1);
+    setSendRange(after, sendRange[1] < after ? (after > today ? after : today) : sendRange[1]);
   });
   function copyText(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -1259,8 +1261,8 @@ table.months td.inv-x .icon-btn { width: 32px; height: 32px; }
     }
     var y = +today.slice(0, 4), m = +today.slice(5, 7), lm = S.addMonths(y, m, -1);
     var settings = Object.assign(defaultSettings(), { rates: [{ from: y + '-01-01', rate: 50 }, { from: S.monthStart(lm.y, lm.m), rate: 60 }], goal: { type: 'hours', value: 150 } });
-    var inv = S.summarize(days, S.monthStart(lm.y, lm.m), S.monthEnd(lm.y, lm.m), settings);
-    var invoices = [{ id: 'demo', from: inv.start, to: inv.end, sentOn: S.addDays(inv.end, 1), minutes: inv.minutes, amount: inv.amount, createdAt: 1 }];
+    var bm = S.addMonths(y, m, -2);
+    var invoices = [S.monthEnd(bm.y, bm.m), S.monthEnd(lm.y, lm.m)].map(function (k, i) { return { id: 'demo' + i, from: null, to: k, sentOn: k, minutes: null, amount: null, createdAt: i + 1 }; });
     return { version: 1, days: days, settings: settings, invoices: invoices };
   }
 
