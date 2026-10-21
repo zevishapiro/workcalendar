@@ -346,8 +346,15 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
           <button class="btn primary" type="button" id="sendShare">Share</button>
           <button class="btn" type="button" id="sendCopy">Copy text</button>
           <button class="btn" type="button" id="sendCsv">Spreadsheet</button>
+          <button class="btn" type="button" id="addExpense" aria-label="Add an expense" title="Add an expense">+</button>
         </div>
-        <p class="hint">Copy the numbers, send your invoice however you like, then set "Last invoiced" to that day. Changing it to a later date keeps the old one under "Earlier". If your rate changed inside the range, each rate gets its own line.</p>
+        <form class="send-range" id="expenseForm" hidden>
+          <label>Expense <input type="number" inputmode="decimal" step="0.01" min="0" id="expenseAmount" placeholder="0.00"></label>
+          <button class="btn primary" type="submit">Add</button>
+          <button class="btn quiet" type="button" id="expenseCancel">Cancel</button>
+        </form>
+        <div class="earlier" id="expenseList" hidden></div>
+        <p class="hint">Copy the numbers, send your invoice however you like, then set "Last invoiced" to that day. Changing it to a later date keeps the old one under "Earlier". Expenses added with + are added to the total until you change "Last invoiced", then they count as billed and go away. If your rate changed inside the range, each rate gets its own line.</p>
       </div>
     </section>
 
@@ -478,7 +485,9 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
     // The earlier version kept one "last invoiced" date. Keep it as an invoice covering everything up to that day.
     if (DATE_RE.test(s.lastInvoiced) && !invoices.length) invoices.push({ id: 'last-invoiced', from: null, to: s.lastInvoiced, sentOn: s.lastInvoiced, minutes: null, amount: null, createdAt: 0 });
     delete s.lastInvoiced;
-    return { version: 1, settings: s, days: days, timer: timer, invoices: invoices };
+    var expenses = (Array.isArray(d.expenses) ? d.expenses : []).filter(function (v) { return v && +v.amount > 0; })
+      .map(function (v) { return { id: String(v.id || newId()), amount: Math.round(+v.amount * 100) / 100, createdAt: +v.createdAt || 0 }; });
+    return { version: 1, settings: s, days: days, timer: timer, invoices: invoices, expenses: expenses };
   }
   function load() {
     var raw = storeGet(KEY), data = null;
@@ -925,16 +934,21 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
   function sendSummary() { return S.summarize(state.days, sendRange[0], sendRange[1], state.settings); }
   function hoursWord(min) { var h = S.formatHours(min, 'decimal'); return h + (h === '1' ? ' hour' : ' hours'); }
   function sendText(sum) {
-    var lines = ['Hours for ' + S.rangeLabel(sum.start, sum.end)];
-    if (!sum.rows.length) { lines.push('No hours logged.'); return lines.join('\n'); }
-    if (sum.rows.length === 1) {
+    var lines = ['Hours for ' + S.rangeLabel(sum.start, sum.end)], ex = expenseTotal();
+    if (!sum.rows.length && !ex) { lines.push('No hours logged.'); return lines.join('\n'); }
+    if (!sum.rows.length) lines.push('No hours logged.');
+    else if (sum.rows.length === 1) {
       var r = sum.rows[0];
       lines.push(hoursWord(r.minutes) + ' at ' + fmtMoney(r.rate) + '/hour = ' + fmtMoney(r.amount));
     } else {
       sum.rows.forEach(function (r) {
         lines.push(S.rangeLabel(r.start, r.end) + ': ' + hoursWord(r.minutes) + ' at ' + fmtMoney(r.rate) + '/hour = ' + fmtMoney(r.amount));
       });
-      lines.push('Total: ' + hoursWord(sum.minutes) + ' = ' + fmtMoney(sum.amount));
+      if (!ex) lines.push('Total: ' + hoursWord(sum.minutes) + ' = ' + fmtMoney(sum.amount));
+    }
+    if (ex) {
+      lines.push('Expenses: ' + fmtMoney(ex));
+      lines.push('Total: ' + (sum.rows.length ? hoursWord(sum.minutes) + ' + expenses = ' : '') + fmtMoney(sum.amount + ex));
     }
     return lines.join('\n');
   }
@@ -942,7 +956,9 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
     var c = state.settings.currency;
     var lines = ['From,To,Hours,Rate per hour (' + c + '),Amount (' + c + ')'];
     sum.rows.forEach(function (r) { lines.push([r.start, r.end, (r.minutes / 60).toFixed(2), r.rate.toFixed(2), r.amount.toFixed(2)].join(',')); });
-    if (sum.rows.length !== 1) lines.push(['Total', '', (sum.minutes / 60).toFixed(2), '', sum.amount.toFixed(2)].join(','));
+    var ex = expenseTotal();
+    if (ex) lines.push(['Expenses', '', '', '', ex.toFixed(2)].join(','));
+    if (sum.rows.length !== 1 || ex) lines.push(['Total', '', (sum.minutes / 60).toFixed(2), '', (sum.amount + ex).toFixed(2)].join(','));
     return lines.join('\n') + '\n';
   }
   function renderSend() {
@@ -969,10 +985,13 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
     var tbody = el('tbody');
     function addRow(cells, cls) { var tr = el('tr', cls); cells.forEach(function (v) { var td = el('td'); td.textContent = v; tr.appendChild(td); }); tbody.appendChild(tr); }
     sum.rows.forEach(function (r) { addRow([S.rangeLabel(r.start, r.end), S.formatHours(r.minutes, 'decimal'), fmtMoney(r.rate) + '/h', fmtMoney(r.amount)]); });
-    if (sum.rows.length > 1) addRow(['Total', S.formatHours(sum.minutes, 'decimal'), '', fmtMoney(sum.amount)], 'total');
-    if (!sum.rows.length) { var tr = el('tr', 'dim'), td = el('td'); td.colSpan = 4; td.textContent = 'No hours logged between these dates.'; tr.appendChild(td); tbody.appendChild(tr); }
+    var ex = expenseTotal();
+    if (ex) addRow(['Expenses', '', '', fmtMoney(ex)]);
+    if (sum.rows.length > 1 || (ex && sum.rows.length)) addRow(['Total', S.formatHours(sum.minutes, 'decimal'), '', fmtMoney(sum.amount + ex)], 'total');
+    if (!sum.rows.length && !ex) { var tr = el('tr', 'dim'), td = el('td'); td.colSpan = 4; td.textContent = 'No hours logged between these dates.'; tr.appendChild(td); tbody.appendChild(tr); }
     table.appendChild(tbody);
-    ['#sendShare', '#sendCopy', '#sendCsv'].forEach(function (id) { $(id).disabled = !sum.rows.length; });
+    ['#sendShare', '#sendCopy', '#sendCsv'].forEach(function (id) { $(id).disabled = !sum.rows.length && !ex; });
+    renderExpenses();
   }
   $$('#sendPresets .chip').forEach(function (b) { b.addEventListener('click', function () { var p = sendPreset(b.dataset.range); if (p) setSendRange(p[0], p[1]); }); });
   $('#sendFrom').addEventListener('change', function () { setSendRange(this.value, $('#sendTo').value, 'from'); });
@@ -1018,11 +1037,44 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
         last.to = v; last.sentOn = v; last.from = null;
         toast('Last invoice date changed to ' + shortDate(v));
       }
+      if (state.expenses.length) { state.expenses = []; toast('Last invoiced ' + shortDate(v) + '. Expenses counted as billed.'); }
       save(); sendRange = null; // show the hours since the new date
     }
     renderSend();
   }
   $('#lastInvoiced').addEventListener('blur', commitLastInvoiced);
+
+  /* misc expenses: added to the total until "Last invoiced" changes, then they count as billed */
+  function expenseTotal() { return Math.round(state.expenses.reduce(function (t, v) { return t + v.amount; }, 0) * 100) / 100; }
+  function renderExpenses() {
+    var box = $('#expenseList'); box.innerHTML = '';
+    box.hidden = !state.expenses.length;
+    if (!state.expenses.length) return;
+    box.append('Expenses:');
+    state.expenses.forEach(function (v) {
+      var c = el('button', 'chip'); c.type = 'button'; c.title = 'Remove ' + fmtMoney(v.amount);
+      c.setAttribute('aria-label', 'Remove expense ' + fmtMoney(v.amount));
+      c.append(fmtMoney(v.amount)); c.insertAdjacentHTML('beforeend', X_ICON);
+      c.addEventListener('click', function () {
+        state.expenses = state.expenses.filter(function (w) { return w !== v; }); save(); renderSend();
+      });
+      box.appendChild(c);
+    });
+  }
+  function closeExpense() { $('#expenseForm').hidden = true; $('#expenseAmount').value = ''; }
+  $('#addExpense').addEventListener('click', function () {
+    var f = $('#expenseForm');
+    if (!f.hidden) { closeExpense(); return; }
+    f.hidden = false; $('#expenseAmount').focus();
+  });
+  $('#expenseCancel').addEventListener('click', closeExpense);
+  $('#expenseForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var a = Math.round(parseFloat(String($('#expenseAmount').value).replace(',', '.')) * 100) / 100;
+    if (!(a > 0)) { toast('Enter an amount'); $('#expenseAmount').focus(); return; }
+    state.expenses.push({ id: newId(), amount: a, createdAt: Date.now() });
+    save(); closeExpense(); renderSend(); toast('Expense ' + fmtMoney(a) + ' added');
+  });
   $('#lastInvoiced').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); this.blur(); } });
   $('#overlapSkip').addEventListener('click', function () {
     var last = S.latestInvoice(state.invoices); if (!last) return;
@@ -1158,6 +1210,8 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
     });
     var ids = {}; state.invoices.forEach(function (v) { ids[v.id] = 1; });
     pendingImport.invoices.forEach(function (v) { if (!ids[v.id]) state.invoices.push(v); });
+    var eids = {}; state.expenses.forEach(function (v) { eids[v.id] = 1; });
+    pendingImport.expenses.forEach(function (v) { if (!eids[v.id]) state.expenses.push(v); });
     save(); pendingImport = null; $('#importPrompt').hidden = true;
     toast('Merged: ' + added + ' added, ' + updated + ' updated');
   });

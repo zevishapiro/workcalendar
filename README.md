@@ -86,6 +86,11 @@ invoice dates. Setting an earlier date corrects the current one. If the dates
 you pick include days on or before your last invoice, a warning says so, and
 "Skip invoiced days" moves the start past them.
 
+The + next to Spreadsheet adds a misc expense: type the amount and press Add.
+Expenses show under the buttons and are added to the total (and to the text
+and spreadsheet) until you change "Last invoiced". Then they count as billed
+and go away. Tap one to remove it.
+
 ## What you can type
 
 Durations: `8`, `7.5`, `7,5`, `7:30`, `7h30`, `7h 30m`, `45m`, `0.75`
