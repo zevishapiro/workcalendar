@@ -1,11 +1,12 @@
 /* Hours service worker: caches the app shell so it opens offline.
    Bump CACHE on every deploy so phones pick up the new files. */
-var CACHE = 'hours-v7';
+var CACHE = 'hours-v8';
 var SHELL = ['./', './index.html', './parser.js', './stats.js', './manifest.webmanifest',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-maskable-192.png'];
 
+// cache: 'reload' skips the browser's HTTP cache, so a new version never installs old files.
 self.addEventListener('install', function (e) {
-  e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL); }).then(function () { return self.skipWaiting(); }));
+  e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL.map(function (u) { return new Request(u, { cache: 'reload' }); })); }).then(function () { return self.skipWaiting(); }));
 });
 self.addEventListener('activate', function (e) {
   e.waitUntil(caches.keys().then(function (keys) {

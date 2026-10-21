@@ -1333,7 +1333,23 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
     renderTimer();
   });
   if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1')) {
-    window.addEventListener('load', function () { try { navigator.serviceWorker.register('./sw.js').catch(function () {}); } catch (e) {} });
+    window.addEventListener('load', function () {
+      try {
+        navigator.serviceWorker.register('./sw.js').then(function (reg) {
+          // Check for a new version whenever the app comes back to the front, not only on a cold start.
+          document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') reg.update().catch(function () {}); });
+        }).catch(function () {});
+      } catch (e) {}
+    });
+    // When a new version takes over, reload so it shows right away. Wait if you're typing, so nothing half-typed is lost.
+    var hadController = !!navigator.serviceWorker.controller, reloading = false;
+    function reloadNow() { if (reloading) return; reloading = true; location.reload(); }
+    navigator.serviceWorker.addEventListener('controllerchange', function () {
+      if (!hadController) { hadController = true; return; }
+      var a = document.activeElement;
+      if (!a || !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) reloadNow();
+      else document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') reloadNow(); });
+    });
   }
 })();
 </script>
