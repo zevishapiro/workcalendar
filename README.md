@@ -3,7 +3,7 @@
 A one-field work hours tracker. Tap a day, type `7.5` or `9-5` or `9-1, 2-6`,
 and it does the rest: monthly totals, earnings at your hourly rate, averages,
 a chart. No login, no server, no build step. Data lives in the browser of the
-device you use it on.
+device you use it on, and can back itself up to a Google Sheet.
 
 ## Files
 
@@ -14,6 +14,7 @@ device you use it on.
 | `stats.js` | Dates, rate history, rounding, periods, aggregates |
 | `parser.test.js`, `stats.test.js` | Tests. Run with `node parser.test.js && node stats.test.js` |
 | `sw.js` | Service worker so the app opens offline |
+| `google-sheet-backup.gs` | The script that receives backups in a Google Sheet |
 | `manifest.webmanifest`, `icons/` | Home-screen install |
 | `netlify.toml` | Publish settings and cache headers |
 
@@ -119,3 +120,27 @@ last did.
 Settings keeps a list of rates, each with the date it starts. Add a row when
 you get a raise. Days before that date keep the old rate, so past months don't
 change.
+
+## Google Sheet backup
+
+The browser is the only place the hours live, and clearing the browser's site
+data erases them. Settings has a "Google Sheet backup" box: give it the address
+of a Google Apps Script web app and every change is also sent to a Sheet.
+
+Set it up once:
+
+1. Make a Google Sheet. Open Extensions, then Apps Script.
+2. Replace what's there with `google-sheet-backup.gs` and save.
+3. Deploy, New deployment, type Web app. Execute as: Me. Who has access: Anyone.
+   Approve the permission prompt. The script can only touch that one Sheet.
+4. Copy the web app URL (it ends in `/exec`) into Settings in Hours.
+
+The Sheet gets two tabs. `Days` is one row per day and is rewritten on every
+backup. `Restore` keeps the whole backup as text, one row per calendar date,
+newest on top, for the last 90 dates. To restore, copy the newest row's backup
+text into a file ending `.json` and use Import JSON.
+
+The address works like a password for adding to the Sheet: it can't be used to
+read it. It is stored on the device next to the hours, apart from them, and is
+never in an export. An app with no days sends nothing, so a wiped browser can't
+blank the Sheet. After a wipe, paste the address in again.

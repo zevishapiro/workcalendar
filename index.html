@@ -255,6 +255,7 @@ table.months td .rm svg { width: 14px; height: 14px; }
 .rate-row input[type="number"] { width: 92px; }
 .rate-row .lbl { color: var(--text-2); font-size: 13px; }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 8px; }
+.backup-url { width: 100%; padding: 7px 10px; border: 1px solid var(--border-2); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 13px; }
 .hint { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
 .import-prompt { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; padding: 10px 12px; background: var(--accent-soft); border-radius: 10px; font-size: 13px; }
 .import-prompt span { flex: 1; }
@@ -405,11 +406,16 @@ table.months td .rm svg { width: 14px; height: 14px; }
         <div class="btn-row" style="margin-top:12px"><button class="btn danger" type="button" id="deleteAll">Delete all data</button></div>
       </div>
       <div class="card">
+        <div class="card-title">Google Sheet backup</div>
+        <input type="url" id="backupUrl" class="backup-url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" spellcheck="false" aria-label="Google Sheet backup address">
+        <p class="hint" id="backupStatus"></p>
+      </div>
+      <div class="card">
         <div class="card-title">Demo</div>
         <p class="hint" style="margin:0 0 10px">Try the app with three months of sample data. Your real entries stay where they are.</p>
         <button class="btn" type="button" id="demoToggle">Load demo data</button>
       </div>
-      <p class="footer-note">Hours · data lives on this device only. Export JSON is your backup.</p>
+      <p class="footer-note">Hours · data lives on this device. Set up the Google Sheet backup, or use Export JSON.</p>
     </section>
   </main>
 </div>
@@ -510,7 +516,49 @@ table.months td .rm svg { width: 14px; height: 14px; }
   var state = load();
   function save() {
     if (!storeSet(KEY, JSON.stringify(state))) toast("Couldn't save. This browser is blocking storage.");
+    backupSoon();
   }
+
+  /* ---------- Google Sheet backup ----------
+     Every save is also posted to a Google Sheet the owner set up (see
+     google-sheet-backup.gs). The address is kept apart from the data, is never
+     exported, and demo data is never sent. An empty app sends nothing, so a
+     wiped browser can't blank the Sheet. */
+  var BACKUP_KEY = 'hours.backup.v1', BACKUP_RE = /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/;
+  var backup = (function () {
+    var b = null; try { b = JSON.parse(storeGet(BACKUP_KEY)); } catch (e) {}
+    b = (b && typeof b === 'object') ? b : {};
+    return { url: BACKUP_RE.test(b.url) ? b.url : '', lastOk: +b.lastOk || null, pending: !!b.pending, failed: !!b.failed };
+  })();
+  var backupTimer = null, backupBusy = false, backupAgain = false;
+  function backupStore() { storeSet(BACKUP_KEY, JSON.stringify(backup)); }
+  function backupStatus() {
+    var e = document.getElementById('backupStatus'); if (!e) return;
+    e.textContent = !backup.url ? 'Not set up. Your hours are only on this device.'
+      : backup.failed ? "Couldn't reach the Sheet. It will try again on the next change."
+      : backup.lastOk ? 'Backed up ' + relativeDays(backup.lastOk) + ' at ' + fmtTime(backup.lastOk) + '.'
+      : 'Waiting for the first backup.';
+  }
+  function backupSoon() {
+    if (DEMO || !backup.url) return;
+    if (!backup.pending) { backup.pending = true; backupStore(); }
+    clearTimeout(backupTimer); backupTimer = setTimeout(backupNow, 3000);
+  }
+  function backupNow(leaving) {
+    clearTimeout(backupTimer);
+    if (DEMO || !backup.url || !backup.pending || !Object.keys(state.days).length) return;
+    if (backupBusy) { backupAgain = true; return; }
+    backupBusy = true; backupAgain = false;
+    // text/plain keeps this a simple request, which is all Apps Script accepts from a browser.
+    fetch(backup.url, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify(state), keepalive: !!leaving })
+      .then(function (r) { return r.json(); })
+      .then(function (r) { if (!r || !r.ok) throw new Error('refused'); backup.lastOk = Date.now(); backup.failed = false; if (!backupAgain) backup.pending = false; })
+      .catch(function () { backup.failed = true; })
+      .then(function () { backupBusy = false; backupStore(); backupStatus(); if (backupAgain) backupSoon(); });
+  }
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden' && backupTimer) backupNow(true); });
+  // Anything left unsent from last time (closed too soon, or offline) goes now.
+  if (backup.pending) setTimeout(backupNow, 1500);
 
   /* ---------- formatting ---------- */
   function fmtH(min) { return S.formatHours(min, state.settings.hoursFormat); }
@@ -1137,6 +1185,7 @@ table.months td .rm svg { width: 14px; height: 14px; }
     $('#setTheme').value = s.theme;
     $('#lastExport').textContent = s.lastExport ? 'Last exported ' + relativeDays(s.lastExport) + '.' : 'Never exported.';
     $('#demoToggle').textContent = DEMO ? 'Exit demo' : 'Load demo data';
+    $('#backupUrl').value = backup.url; backupStatus();
   }
   function renderRates() {
     var list = $('#ratesList'); list.innerHTML = '';
@@ -1234,6 +1283,12 @@ table.months td .rm svg { width: 14px; height: 14px; }
   $('#deleteAll').addEventListener('click', function () {
     if (!confirm('Delete every entry and all settings on this device? This cannot be undone.')) return;
     state = normalize(null); storeDel(KEY); save(); applyTheme(); renderSettings(); toast('All data deleted');
+  });
+  $('#backupUrl').addEventListener('change', function () {
+    var v = this.value.trim();
+    if (v && !BACKUP_RE.test(v)) { toast("That isn't a Google web app address. It ends in /exec."); this.value = backup.url; return; }
+    backup = { url: v, lastOk: null, pending: !!v, failed: false }; backupStore(); backupStatus();
+    if (v) { toast('Backing up…'); backupNow(); } else toast('Backup turned off');
   });
   function toggleDemo() { sessionSet('hours.demo', DEMO ? null : '1'); location.href = location.pathname; }
   $('#demoToggle').addEventListener('click', toggleDemo);
