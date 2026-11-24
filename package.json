@@ -4,7 +4,7 @@
   "private": true,
   "description": "Hours: a one-field work hours tracker.",
   "scripts": {
-    "test": "node parser.test.js && node stats.test.js",
+    "test": "node parser.test.js && node stats.test.js && node sync.test.js && node google-sheet-backup.test.js",
     "start": "npx serve ."
   }
 }

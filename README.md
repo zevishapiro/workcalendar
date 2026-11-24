@@ -3,7 +3,8 @@
 A one-field work hours tracker. Tap a day, type `7.5` or `9-5` or `9-1, 2-6`,
 and it does the rest: monthly totals, earnings at your hourly rate, averages,
 a chart. No login, no server, no build step. Data lives in the browser of the
-device you use it on, and can back itself up to a Google Sheet.
+device you use it on, and can sync through a Google Sheet so your phone and
+computer share the same hours.
 
 ## Files
 
@@ -12,9 +13,10 @@ device you use it on, and can back itself up to a Google Sheet.
 | `index.html` | The whole app: markup, styles, and the UI code |
 | `parser.js` | `parseEntry(text)`, the one function that reads what you typed |
 | `stats.js` | Dates, rate history, rounding, periods, aggregates |
-| `parser.test.js`, `stats.test.js` | Tests. Run with `node parser.test.js && node stats.test.js` |
+| `sync.js` | Combines this device's copy with the Google Sheet's |
+| `*.test.js` | Tests. Run with `npm test` |
 | `sw.js` | Service worker so the app opens offline |
-| `google-sheet-backup.gs` | The script that receives backups in a Google Sheet |
+| `google-sheet-backup.gs` | The script in the Google Sheet that devices sync through |
 | `manifest.webmanifest`, `icons/` | Home-screen install |
 | `netlify.toml` | Publish settings and cache headers |
 
@@ -59,7 +61,8 @@ The Calendar tab has a "Start work" button. Press it when you begin; press End
 when you stop and the session lands in that day's field as a time range, like
 `9:05-17:32`. Do it twice in a day and you get `9:05-12:30, 13:15-17:32`. The
 start time is saved on the device, so closing the app or locking the phone
-doesn't lose it. Tap the "Started 9:05" text to fix the start time if you
+doesn't lose it. With sync on, a timer started on one device shows on the
+others, and you can end it from any of them. Tap the "Started 9:05" text to fix the start time if you
 pressed the button late. Discard throws the session away.
 
 ## Send hours
@@ -109,7 +112,7 @@ A `0` marks a day off. Clearing the field removes the day.
 
 ## Backups
 
-The data is only in the browser on that device. Settings has Export JSON,
+Without sync, the data is only in the browser on that device. Settings has Export JSON,
 which downloads a full backup, and Import JSON to restore it (merge or
 replace). Export CSV gives a spreadsheet-friendly file with date, entry,
 hours, earnings, and note. Do an export now and then; Settings shows when you
@@ -121,26 +124,52 @@ Settings keeps a list of rates, each with the date it starts. Add a row when
 you get a raise. Days before that date keep the old rate, so past months don't
 change.
 
-## Google Sheet backup
+## Sync between devices
 
-The browser is the only place the hours live, and clearing the browser's site
-data erases them. Settings has a "Google Sheet backup" box: give it the address
-of a Google Apps Script web app and every change is also sent to a Sheet.
+Settings has a "Sync with a Google Sheet" box. Give every device the same Sheet
+address and password, and they share hours, settings, invoices, expenses and
+the Start/End timer. Start the timer on your computer and end it from your phone.
+The Sheet is also a backup: the browser is otherwise the only place the hours
+live, and clearing its site data erases them.
 
-Set it up once:
+Set it up once, in a Google Sheet:
 
-1. Make a Google Sheet. Open Extensions, then Apps Script.
-2. Replace what's there with `google-sheet-backup.gs` and save.
-3. Deploy, New deployment, type Web app. Execute as: Me. Who has access: Anyone.
-   Approve the permission prompt. The script can only touch that one Sheet.
-4. Copy the web app URL (it ends in `/exec`) into Settings in Hours.
+1. Make a Google Sheet, or use the one you already back up to. Open Extensions,
+   then Apps Script.
+2. Replace what's there with `google-sheet-backup.gs`. Put a password between
+   the quotes on the `PASSWORD` line. Save.
+3. First time: Deploy, New deployment, type Web app. Execute as: Me. Who has
+   access: Anyone. Approve the permission prompt. Copy the web app URL (it ends
+   in `/exec`).
+   Updating the script later: Deploy, Manage deployments, the pencil icon,
+   Version: New version, Deploy. The URL stays the same.
+4. In Hours, Settings, paste the URL and the password. Do the same on each
+   device.
 
-The Sheet gets two tabs. `Days` is one row per day and is rewritten on every
-backup. `Restore` keeps the whole backup as text, one row per calendar date,
-newest on top, for the last 90 dates. To restore, copy the newest row's backup
-text into a file ending `.json` and use Import JSON.
+How it works: each device keeps its own copy and syncs it about 3 seconds after
+a change, when the app opens or comes back to the front, and every few minutes
+while it's open. "Sync now" does it right away. The Sheet holds a version
+number. A device can only save over the version it last saw. If another device
+saved in between, it gets the Sheet's copy back, combines the two, and sends
+again. Combining keeps the newest change to each day, invoice, expense, the
+settings and the timer, and deletes stay deleted. Every change records when it
+happened, so even edits made offline land in the right order once you're back
+online. The one thing that can't be combined is the same day changed on two
+devices before either synced: the later change wins.
 
-The address works like a password for adding to the Sheet: it can't be used to
-read it. It is stored on the device next to the hours, apart from them, and is
-never in an export. An app with no days sends nothing, so a wiped browser can't
-blank the Sheet. After a wipe, paste the address in again.
+The first device to connect combines with the newest backup already in the
+Sheet, so it's safe to connect the phone before the computer or the other way
+round. Settings someone changed beat a new device's defaults.
+
+The Sheet gets three tabs. `Sync` is hidden and holds the shared copy; don't
+edit it. `Days` is one row per day and is rewritten on every change. `Restore`
+keeps the whole data as text, one row per calendar date, newest on top, for the
+last 90 dates. To restore, copy the newest row's backup text into a file ending
+`.json` and use Import JSON.
+
+Nothing is read or written without the password. The address and password are
+stored on the device apart from the hours, and are never in an export.
+
+With sync on, Import's Replace replaces the data on every device, not just this
+one. "Delete all data" clears only this device and turns sync off on it; the
+Sheet and your other devices keep their copy. Demo data never syncs.

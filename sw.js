@@ -1,7 +1,7 @@
 /* Hours service worker: caches the app shell so it opens offline.
    Bump CACHE on every deploy so phones pick up the new files. */
-var CACHE = 'hours-v10';
-var SHELL = ['./', './index.html', './parser.js', './stats.js', './manifest.webmanifest',
+var CACHE = 'hours-v11';
+var SHELL = ['./', './index.html', './parser.js', './stats.js', './sync.js', './manifest.webmanifest',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-maskable-192.png'];
 
 // cache: 'reload' skips the browser's HTTP cache, so a new version never installs old files.
