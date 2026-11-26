@@ -147,8 +147,8 @@ Set it up once, in a Google Sheet:
    device.
 
 How it works: each device keeps its own copy and syncs it about 3 seconds after
-a change, when the app opens or comes back to the front, and every few minutes
-while it's open. "Sync now" does it right away. The Sheet holds a version
+a change, when the app opens or comes back to the front, and every 15 seconds
+while it's on screen. "Sync now" does it right away. The Sheet holds a version
 number. A device can only save over the version it last saw. If another device
 saved in between, it gets the Sheet's copy back, combines the two, and sends
 again. Combining keeps the newest change to each day, invoice, expense, the

@@ -591,7 +591,7 @@ table.months td .rm svg { width: 14px; height: 14px; }
     clearTimeout(syncTimer); syncTimer = setTimeout(syncNow, 3000);
   }
   // Check for changes from other devices now, unless that was just done.
-  function syncCheck() { if (syncOn() && !syncBusy && Date.now() - lastTry > 15000) syncNow(); }
+  function syncCheck() { if (syncOn() && !syncBusy && Date.now() - lastTry > 10000) syncNow(); }
   function syncNow(leaving, round) {
     clearTimeout(syncTimer); syncTimer = null;
     if (!syncOn()) return;
@@ -1511,7 +1511,8 @@ table.months td .rm svg { width: 14px; height: 14px; }
   showView('calendar');
   renderTimer();
   // Sync: send anything left from last time and pick up other devices' changes on open,
-  // whenever the app comes back to the front, and every few minutes while it's open.
+  // whenever the app comes back to the front, and every 15 seconds while it's on screen,
+  // so a timer started on one device shows on another that's left open.
   if (syncOn()) setTimeout(syncNow, 500);
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'hidden') { if (sync.pending && syncOn()) syncNow(true); }
@@ -1519,7 +1520,7 @@ table.months td .rm svg { width: 14px; height: 14px; }
   });
   window.addEventListener('focus', syncCheck);
   window.addEventListener('online', syncCheck);
-  setInterval(function () { if (document.visibilityState === 'visible') syncCheck(); }, 180000);
+  setInterval(function () { if (document.visibilityState === 'visible') syncCheck(); }, 15000);
   document.addEventListener('visibilitychange', function () {
     if (document.visibilityState !== 'visible') return;
     var now = S.keyOf(new Date());
