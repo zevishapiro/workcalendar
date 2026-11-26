@@ -85,7 +85,16 @@ h2, h3, p { margin: 0; }
 .icon-btn:hover { background: var(--surface-2); }
 .icon-btn svg { width: 20px; height: 20px; }
 .icon-btn:disabled { opacity: .35; cursor: default; }
-.btn { border: 1px solid var(--border-2); background: var(--surface); color: var(--text); padding: 7px 14px; border-radius: 8px; font-weight: 500; line-height: 1.25; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 0 16px; border: 1px solid var(--border-2); background: var(--surface); color: var(--text); border-radius: 10px; font-size: 15px; font-weight: 600; line-height: 1.2; white-space: nowrap; }
+.btn svg { width: 18px; height: 18px; }
+.btn.block { display: flex; width: 100%; }
+.btn.link { border-color: transparent; background: transparent; color: var(--accent); padding: 0 6px; margin-left: -6px; }
+.btn.link:hover { background: var(--accent-soft); }
+/* A grid of equal buttons: two per line, an odd one out takes the whole line. */
+.btn-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 4px 0 8px; }
+.btn-grid > .btn { width: 100%; }
+.btn-grid > .btn.wide, .btn-grid > .btn:last-child:nth-child(odd) { grid-column: 1 / -1; }
+@media (min-width: 700px) { .btn.block, .btn-grid { max-width: 420px; } }
 .btn:hover { background: var(--surface-2); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .btn.primary:hover { filter: brightness(1.08); }
@@ -218,15 +227,15 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
 .fine { font-size: 12px; color: var(--muted); margin: 12px 2px 0; }
 
 /* send hours */
-.send-presets { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-.send-presets .chip[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
-.send-range { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
-.send-range label { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-2); }
-.last-invoice { font-size: 13px; color: var(--text-2); margin: -2px 0 10px; }
+.send-fields { margin: 0 0 4px; }
+.send-fields .row:first-child { border-top: 0; padding-top: 2px; }
+.last-invoice { font-size: 13px; color: var(--text-2); margin: 2px 0 10px; }
+.send-actions { margin: 14px 0 8px; }
+.send-actions:has(> [hidden]) { display: none; }
 .last-invoice b { color: var(--text); font-weight: 600; }
 #overlapWarn { margin: 0 0 10px; }
 .earlier { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--text-2); margin: -4px 0 12px; }
-.earlier .chip { display: inline-flex; align-items: center; gap: 4px; padding-right: 6px; }
+.earlier .chip { display: inline-flex; align-items: center; gap: 4px; min-height: 30px; padding: 0 8px 0 12px; font-size: 13px; }
 .earlier .chip svg { width: 14px; height: 14px; }
 .expense-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 4px 0 8px; }
 .expense-form input { font: inherit; color: var(--text); min-width: 0; }
@@ -238,33 +247,42 @@ table.months tr.total td { font-weight: 600; border-top: 2px solid var(--border-
 table.months td .rm { width: 24px; height: 24px; margin: -4px -6px -4px 4px; vertical-align: middle; color: var(--muted); }
 table.months td .rm svg { width: 14px; height: 14px; }
 @media (max-width: 699px) { .expense-amount, #expenseNote { min-height: 44px; font-size: 16px; } #expenseNote { max-width: none; } .expense-actions { width: 100%; } .expense-actions .btn { flex: 1; } table.months td .rm { width: 36px; height: 36px; margin: -10px -10px -10px 0; } }
-.send-range input { padding: 7px 10px; border: 1px solid var(--border-2); border-radius: 8px; background: var(--bg); color: var(--text); min-width: 0; }
-@media (max-width: 699px) { .send-range input { min-height: 44px; } }
 
 /* settings */
 .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
 .row:first-of-type { border-top: 0; }
 .row label { font-weight: 500; }
-.row select, .row input[type="number"] { padding: 7px 10px; border: 1px solid var(--border-2); border-radius: 8px; background: var(--bg); color: var(--text); max-width: 190px; min-width: 0; }
+.row select, .row input[type="number"], .row input[type="date"] { min-height: 40px; padding: 0 10px; border: 1px solid var(--border-2); border-radius: 10px; background: var(--bg); color: var(--text); font-size: 15px; min-width: 0; }
+.row > select, .row > input[type="number"], .row > input[type="date"], .row > .inline { width: 190px; max-width: 58%; flex: none; }
+.row > .inline select, .row > .inline input { flex: 1 1 0; width: auto; }
+.row label { color: var(--text); }
 .row .inline { display: flex; gap: 6px; }
-.row .inline input { width: 96px; }
-.rate-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 0; border-top: 1px solid var(--border); }
-.rate-row:first-child { border-top: 0; }
-.rate-row input { padding: 7px 10px; border: 1px solid var(--border-2); border-radius: 8px; background: var(--bg); color: var(--text); }
-.rate-row input[type="date"] { width: 150px; }
-.rate-row input[type="number"] { width: 92px; }
-.rate-row .lbl { color: var(--text-2); font-size: 13px; }
+.rate-head, .rate-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 40px; gap: 8px; align-items: center; }
+.rate-head { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; padding: 0 0 6px; }
+.rate-row { padding: 6px 0; }
+.rate-row input[type="date"] { min-height: 40px; padding: 0 10px; border: 1px solid var(--border-2); border-radius: 10px; background: var(--bg); color: var(--text); font-size: 15px; width: 100%; min-width: 0; }
+.money-field { display: flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 10px; border: 1px solid var(--border-2); border-radius: 10px; background: var(--bg); color: var(--muted); font-size: 13px; cursor: text; min-width: 0; }
+.money-field input { flex: 1; width: 100%; min-width: 0; border: 0; background: transparent; color: var(--text); font: inherit; font-size: 15px; outline: none; padding: 0; font-variant-numeric: tabular-nums; }
+.money-field:focus-within { border-color: var(--accent); }
+.rate-row .icon-btn { width: 40px; height: 40px; }
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 4px 0 8px; }
 .backup-url { width: 100%; padding: 7px 10px; border: 1px solid var(--border-2); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 13px; }
 .backup-url + .backup-url { margin-top: 8px; }
 .hint { font-size: 13px; color: var(--muted); margin: 6px 0 0; }
-.import-prompt { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 8px 0; padding: 10px 12px; background: var(--accent-soft); border-radius: 10px; font-size: 13px; }
-.import-prompt span { flex: 1; }
+.import-prompt { margin: 8px 0; padding: 12px; background: var(--accent-soft); border-radius: 12px; font-size: 13px; }
+.import-prompt > span { display: block; margin-bottom: 8px; }
+.import-prompt .btn-grid { margin: 0; }
 .footer-note { text-align: center; font-size: 12px; color: var(--muted); margin-top: 20px; }
 /* phone: every control is at least 44px tall */
 @media (max-width: 699px) {
   .icon-btn { width: 44px; height: 44px; }
-  .btn { min-height: 44px; padding: 10px 16px; }
+  .btn { min-height: 44px; padding: 0 18px; }
+  .btn.link { padding: 0 6px; }
+  .row select, .row input[type="number"], .row input[type="date"], .money-field, .rate-row input[type="date"] { min-height: 44px; font-size: 16px; }
+  .money-field input { font-size: 16px; }
+  .rate-head, .rate-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px; }
+  .rate-row .icon-btn { width: 44px; height: 44px; }
+  .earlier .chip { min-height: 32px; font-size: 14px; }
   .chip { min-height: 44px; padding: 0 16px; font-size: 15px; }
   .seg button { min-height: 44px; }
   .banner button { min-height: 44px; }
@@ -336,30 +354,17 @@ table.months td .rm svg { width: 14px; height: 14px; }
       <p class="fine" id="statsNote"></p>
       <div class="card" id="sendCard">
         <div class="card-title">Send hours</div>
-        <div class="send-range">
-          <label>Last invoiced <input type="date" id="lastInvoiced"></label>
+        <div class="send-fields">
+          <div class="row"><label for="sendPeriod">Period</label><select id="sendPeriod"></select></div>
+          <div class="row"><label for="sendFrom">From</label><input type="date" id="sendFrom"></div>
+          <div class="row"><label for="sendTo">To</label><input type="date" id="sendTo"></div>
+          <div class="row"><label for="lastInvoiced">Last invoiced</label><input type="date" id="lastInvoiced"></div>
         </div>
         <p class="last-invoice" id="lastInvoiceLine"></p>
         <div class="earlier" id="earlierInvoices" hidden></div>
-        <div class="send-presets" id="sendPresets" role="group" aria-label="Quick range">
-          <button class="chip" type="button" data-range="invoice" aria-pressed="false" hidden>Since last invoice</button>
-          <button class="chip" type="button" data-range="week" aria-pressed="false">This week</button>
-          <button class="chip" type="button" data-range="lastweek" aria-pressed="false">Last week</button>
-          <button class="chip" type="button" data-range="month" aria-pressed="false">This month</button>
-          <button class="chip" type="button" data-range="lastmonth" aria-pressed="false">Last month</button>
-        </div>
-        <div class="send-range">
-          <label>From <input type="date" id="sendFrom"></label>
-          <label>To <input type="date" id="sendTo"></label>
-        </div>
         <div class="banner warn" id="overlapWarn" hidden><span id="overlapText"></span><button type="button" id="overlapSkip">Skip invoiced days</button></div>
         <table class="months" id="sendTable"></table>
-        <div class="btn-row" style="margin-top:12px">
-          <button class="btn primary" type="button" id="sendShare">Share</button>
-          <button class="btn" type="button" id="sendCopy">Copy text</button>
-          <button class="btn" type="button" id="sendCsv">Spreadsheet</button>
-          <button class="btn" type="button" id="addExpense" aria-label="Add an expense" title="Add an expense">+</button>
-        </div>
+        <button class="btn link" type="button" id="addExpense"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add expense</button>
         <form class="expense-form" id="expenseForm" autocomplete="off" hidden>
           <label class="expense-amount"><span id="expenseCur" aria-hidden="true">$</span><input type="text" inputmode="decimal" id="expenseAmount" placeholder="0.00" aria-label="Expense amount"></label>
           <input type="text" id="expenseNote" placeholder="What it's for" maxlength="80" aria-label="What the expense is for">
@@ -368,7 +373,14 @@ table.months td .rm svg { width: 14px; height: 14px; }
             <button class="btn quiet" type="button" id="expenseCancel">Cancel</button>
           </div>
         </form>
-        <p class="hint">Copy the numbers, send your invoice however you like, then set "Last invoiced" to that day. Changing it to a later date keeps the old one under "Earlier". Expenses added with + (an amount and what it's for) are added to the total until you change "Last invoiced", then they count as billed and go away. If your rate changed inside the range, each rate gets its own line.</p>
+        <div class="send-actions">
+          <button class="btn primary block" type="button" id="sendShare">Share</button>
+        </div>
+        <div class="btn-grid">
+          <button class="btn" type="button" id="sendCopy">Copy text</button>
+          <button class="btn" type="button" id="sendCsv">Spreadsheet</button>
+        </div>
+        <p class="hint">Copy the numbers, send your invoice however you like, then set "Last invoiced" to that day. Changing it to a later date keeps the old one under "Earlier". Expenses added with Add expense (an amount and what it's for) are added to the total until you change "Last invoiced", then they count as billed and go away. If your rate changed inside the range, each rate gets its own line.</p>
       </div>
     </section>
 
@@ -376,48 +388,50 @@ table.months td .rm svg { width: 14px; height: 14px; }
       <div class="card">
         <div class="card-title">Hourly rate</div>
         <div id="ratesList"></div>
-        <div class="btn-row" style="margin-top:8px"><button class="btn" type="button" id="addRate">Add a rate change</button></div>
+        <button class="btn link" type="button" id="addRate" style="margin-top:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>Add a rate change</button>
         <p class="hint">Each row applies from its date until the next row. Past days keep the rate that was in effect, so a raise doesn't rewrite old months.</p>
       </div>
       <div class="card">
         <div class="row"><label for="setCurrency">Currency</label><select id="setCurrency"></select></div>
         <div class="row"><label for="setWeekStart">Week starts on</label><select id="setWeekStart"><option value="1">Monday</option><option value="0">Sunday</option></select></div>
-        <div class="row"><label for="setHoursFormat">Hours display</label><select id="setHoursFormat"><option value="decimal">Decimal (7.75)</option><option value="hm">Hours and minutes (7:45)</option></select></div>
-        <div class="row"><label for="setRounding">Round each day to</label><select id="setRounding"><option value="0">No rounding</option><option value="15">Nearest 15 min</option><option value="30">Nearest 30 min</option></select></div>
-        <div class="row"><label for="setUsual">Usual hours per day</label><input type="number" id="setUsual" min="1" max="24" step="0.5" inputmode="decimal"></div>
+        <div class="row"><label for="setHoursFormat">Hours display</label><select id="setHoursFormat"><option value="decimal">Decimal (7.75)</option><option value="hm">Clock (7:45)</option></select></div>
+        <div class="row"><label for="setRounding">Rounding</label><select id="setRounding"><option value="0">None</option><option value="15">Nearest 15 min</option><option value="30">Nearest 30 min</option></select></div>
+        <div class="row"><label for="setUsual">Hours per day</label><input type="number" id="setUsual" min="1" max="24" step="0.5" inputmode="decimal"></div>
         <div class="row"><label for="setGoalType">Monthly goal</label><div class="inline"><select id="setGoalType"><option value="">None</option><option value="hours">Hours</option><option value="money">Money</option></select><input type="number" id="setGoalValue" min="0" step="1" inputmode="decimal" aria-label="Goal amount"></div></div>
         <div class="row"><label for="setTheme">Theme</label><select id="setTheme"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></div>
       </div>
       <div class="card">
         <div class="card-title">Data</div>
-        <div class="btn-row">
+        <div class="btn-grid">
           <button class="btn" type="button" id="exportJson">Export JSON</button>
           <button class="btn" type="button" id="exportCsv">Export CSV</button>
           <button class="btn" type="button" id="importBtn">Import JSON</button>
-          <input type="file" id="importFile" accept=".json,application/json" hidden>
         </div>
+        <input type="file" id="importFile" accept=".json,application/json" hidden>
         <div class="import-prompt" id="importPrompt" hidden>
           <span id="importCount"></span>
-          <button class="btn" type="button" id="importMerge">Merge</button>
-          <button class="btn" type="button" id="importReplace">Replace</button>
-          <button class="btn quiet" type="button" id="importCancel">Cancel</button>
+          <div class="btn-grid">
+            <button class="btn" type="button" id="importMerge">Merge</button>
+            <button class="btn" type="button" id="importReplace">Replace</button>
+            <button class="btn quiet" type="button" id="importCancel">Cancel</button>
+          </div>
         </div>
         <p class="hint" id="lastExport"></p>
         <p class="hint">Merge adds days from the file and keeps the newer version of any day that's in both. Replace throws away everything on this device first, and on your other devices too if sync is on.</p>
-        <div class="btn-row" style="margin-top:12px"><button class="btn danger" type="button" id="deleteAll">Delete all data</button></div>
+        <button class="btn block danger" type="button" id="deleteAll" style="margin-top:12px">Delete all data</button>
       </div>
       <div class="card">
         <div class="card-title">Sync with a Google Sheet</div>
         <p class="hint" style="margin:0 0 10px">Put the same address and password on your phone and computer and they share everything: hours, settings, invoices, expenses and a running Start/End timer. The Sheet keeps a backup too.</p>
         <input type="url" id="backupUrl" class="backup-url" placeholder="https://script.google.com/macros/s/…/exec" autocomplete="off" spellcheck="false" aria-label="Google Sheet address">
         <input type="password" id="syncPassword" class="backup-url" placeholder="Password from the script" autocomplete="off" spellcheck="false" aria-label="Sync password">
-        <div class="btn-row" style="margin-top:10px"><button class="btn" type="button" id="syncNowBtn">Sync now</button></div>
+        <button class="btn block" type="button" id="syncNowBtn" style="margin-top:10px">Sync now</button>
         <p class="hint" id="backupStatus"></p>
       </div>
       <div class="card">
         <div class="card-title">Demo</div>
         <p class="hint" style="margin:0 0 10px">Try the app with three months of sample data. Your real entries stay where they are.</p>
-        <button class="btn" type="button" id="demoToggle">Load demo data</button>
+        <button class="btn block" type="button" id="demoToggle">Load demo data</button>
       </div>
       <p class="footer-note">Hours · data lives on this device. Sync it with a Google Sheet to use it on more than one, or use Export JSON.</p>
     </section>
@@ -1133,11 +1147,7 @@ table.months td .rm svg { width: 14px; height: 14px; }
     var part = S.invoicedPart(last && last.to, sendRange[0], sendRange[1]);
     $('#overlapWarn').hidden = !part;
     $('#overlapText').textContent = part ? (part[0] === part[1] ? shortDate(part[0]) + ' is' : S.rangeLabel(part[0], part[1]) + ' are') + ' on or before your last invoice (' + shortDate(last.to) + '), so ' + (part[0] === part[1] ? 'it was' : 'they were') + ' probably billed already.' : '';
-    $$('#sendPresets .chip').forEach(function (b) {
-      var p = sendPreset(b.dataset.range);
-      if (b.dataset.range === 'invoice') b.hidden = !p;
-      b.setAttribute('aria-pressed', p && p[0] === sendRange[0] && p[1] === sendRange[1] ? 'true' : 'false');
-    });
+    renderPeriod();
     var sum = sendSummary(), table = $('#sendTable'); table.innerHTML = '';
     var thead = el('thead'), hr = el('tr');
     ['Dates', 'Hours', 'Rate', 'Amount'].forEach(function (h) { var th = el('th'); th.textContent = h; hr.appendChild(th); });
@@ -1158,7 +1168,23 @@ table.months td .rm svg { width: 14px; height: 14px; }
     table.appendChild(tbody);
     ['#sendShare', '#sendCopy', '#sendCsv'].forEach(function (id) { $(id).disabled = !sum.rows.length && !ex; });
   }
-  $$('#sendPresets .chip').forEach(function (b) { b.addEventListener('click', function () { var p = sendPreset(b.dataset.range); if (p) setSendRange(p[0], p[1]); }); });
+  // Period: the quick ranges, plus "Custom dates" when From and To match none of them.
+  var PERIODS = [['invoice', 'Since last invoice'], ['week', 'This week'], ['lastweek', 'Last week'], ['month', 'This month'], ['lastmonth', 'Last month']];
+  function renderPeriod() {
+    var sel = $('#sendPeriod'); if (sel === document.activeElement) return;
+    var opts = [], chosen = 'custom';
+    PERIODS.forEach(function (o) {
+      var p = sendPreset(o[0]); if (!p) return;
+      opts.push(o);
+      if (chosen === 'custom' && p[0] === sendRange[0] && p[1] === sendRange[1]) chosen = o[0];
+    });
+    if (chosen === 'custom') opts.push(['custom', 'Custom dates']);
+    sel.innerHTML = '';
+    opts.forEach(function (o) { var op = el('option'); op.value = o[0]; op.textContent = o[1]; sel.appendChild(op); });
+    sel.value = chosen;
+  }
+  $('#sendPeriod').addEventListener('change', function () { var p = sendPreset(this.value); if (p) setSendRange(p[0], p[1]); });
+  $('#sendPeriod').addEventListener('blur', function () { renderPeriod(); });
   $('#sendFrom').addEventListener('change', function () { setSendRange(this.value, $('#sendTo').value, 'from'); });
   $('#sendTo').addEventListener('change', function () { setSendRange($('#sendFrom').value, this.value, 'to'); });
   ['#sendFrom', '#sendTo'].forEach(function (id) { $(id).addEventListener('blur', function () { renderSend(); }); });
@@ -1290,13 +1316,14 @@ table.months td .rm svg { width: 14px; height: 14px; }
   function renderRates() {
     var list = $('#ratesList'); list.innerHTML = '';
     var rows = S.sortedRates(state.settings.rates);
+    var head = el('div', 'rate-head'); head.innerHTML = '<span>From</span><span>Rate</span><span></span>'; head.setAttribute('aria-hidden', 'true'); list.appendChild(head);
     rows.forEach(function (r, i) {
       var row = el('div', 'rate-row');
-      var l1 = el('span', 'lbl'); l1.textContent = 'From'; row.appendChild(l1);
       var from = el('input'); from.type = 'date'; from.value = r.from; from.setAttribute('aria-label', 'From date'); row.appendChild(from);
-      var l2 = el('span', 'lbl'); l2.textContent = 'at'; row.appendChild(l2);
-      var rate = el('input'); rate.type = 'number'; rate.min = '0'; rate.step = '0.01'; rate.inputMode = 'decimal'; rate.value = r.rate; rate.setAttribute('aria-label', 'Hourly rate'); row.appendChild(rate);
-      var l3 = el('span', 'lbl'); l3.textContent = state.settings.currency + ' per hour'; row.appendChild(l3);
+      var field = el('label', 'money-field');
+      var rate = el('input'); rate.type = 'number'; rate.min = '0'; rate.step = '0.01'; rate.inputMode = 'decimal'; rate.value = r.rate; rate.setAttribute('aria-label', 'Hourly rate'); field.appendChild(rate);
+      var unit = el('span'); unit.textContent = state.settings.currency + '/h'; unit.setAttribute('aria-hidden', 'true'); field.appendChild(unit);
+      row.appendChild(field);
       var del = el('button', 'icon-btn'); del.type = 'button'; del.setAttribute('aria-label', 'Remove this rate'); del.disabled = rows.length === 1;
       del.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>';
       row.appendChild(del);
